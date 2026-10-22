@@ -129,8 +129,8 @@ reported together in `.problems`.
   "Solved!".
 - **R8.7** The GUI contains no game logic. Rules, hints, and solving live in
   modules that are testable without a display.
-- **R8.8** Errors (invalid puzzle, unreadable screenshot, Pillow missing) are
-  shown in a dialog, never as a traceback.
+- **R8.8** Errors (invalid puzzle, unreadable screenshot) are shown in a
+  dialog, never as a traceback.
 
 ## R9 Screenshot import
 
@@ -142,9 +142,8 @@ reported together in `.problems`.
   clears them. A tile whose mark is unclear is left empty rather than
   guessed. The GUI says how many cats and ✕ marks it read, so the player can
   check them. (Changed at the owner's request; marks were ignored before.)
-- **R9.2** It supports PNG and JPEG through Pillow, installed as the optional
-  `[image]` extra. Every other feature works without Pillow. If Pillow is
-  missing, import raises a `MeowdokuError` that includes the install command.
+- **R9.2** It supports PNG and JPEG through Pillow, a regular dependency
+  installed with the project.
 - **R9.3** It detects the board's position and size N, samples each cell's
   color, and groups the colors into N regions labeled `A`, `B`, `C`, … in
   order of first appearance (row-major).
@@ -156,10 +155,10 @@ reported together in `.problems`.
 
 ## Non-functional requirements
 
-- **NFR1** Python 3.11+. Everything uses only the standard library, except
-  that screenshot import (R9) uses Pillow as an optional extra. Since
-  screenshots are the only input, the CLI and the GUI's Open need Pillow;
-  without it the GUI can still play its built-in example puzzle.
+- **NFR1** Python 3.11+. Pillow is the one runtime dependency, used only by
+  screenshot import (R9). It was an optional extra until screenshots became
+  the only input; the owner then made it a regular dependency. Everything
+  else uses only the standard library.
 - **NFR2** pytest is the only development dependency.
 - **NFR3** Type hints throughout. Small functions that can be tested independently.
 - **NFR4** Output is deterministic for the same input.

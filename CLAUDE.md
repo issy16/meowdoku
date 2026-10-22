@@ -11,9 +11,10 @@ without the owner's approval**, and work one approved milestone at a time.
 
 ## Stack constraints
 
-- Python 3.11+, standard library only for code under `src/`. The one
-  approved exception: Pillow, as the optional `[image]` extra, imported only
-  inside `image_import.py` and only when that function is called.
+- Python 3.11+, standard library only for code under `src/`, with one
+  approved exception: Pillow, a regular dependency for reading screenshots.
+  Only `image_import.py` imports it; the solver, rules, hints, and
+  deduction stay standard library only.
 - The GUI uses tkinter (standard library).
 - pytest is the only development dependency. Do not add packages (including
   Hypothesis) without written justification and owner approval.
@@ -24,9 +25,6 @@ without the owner's approval**, and work one approved milestone at a time.
 source .venv/bin/activate
 python -m pytest          # run all tests; must pass before every commit
 ```
-
-Screenshot tests need the image extra (`pip install -e ".[dev,image]"`);
-without Pillow they are skipped, and everything else must still pass.
 
 ## Architecture
 

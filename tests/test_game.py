@@ -191,6 +191,5 @@ def test_text_puzzle_files_are_not_accepted(tmp_path: Path) -> None:
 
 
 def test_missing_screenshot_raises_os_error(tmp_path: Path) -> None:
-    pytest.importorskip("PIL")
     with pytest.raises(OSError):
         GameSession.from_screenshot(tmp_path / "missing.png")

@@ -3,18 +3,18 @@ import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from meowdoku.cli import EXIT_INPUT_ERROR, EXIT_OK, main
 from meowdoku.puzzle import Puzzle
+
+from screenshot_factory import draw_screenshot, save
 
 EXAMPLE_ROWS = ["AABBB", "ACCCB", "ACDDB", "EEDDB", "EEEBB"]
 
 
 def screenshot(tmp_path: Path, rows: list[str]) -> Path:
-    """A synthetic screenshot of the board; needs Pillow."""
-    pytest.importorskip("PIL")
-    from screenshot_factory import draw_screenshot, save
-
+    """A synthetic screenshot of the board."""
     return save(draw_screenshot(Puzzle.from_rows(rows)), tmp_path / "board.png")
 
 
@@ -92,7 +92,6 @@ def test_r6_3_text_puzzle_files_are_not_accepted(tmp_path: Path, capsys: pytest.
 
 
 def test_r6_3_missing_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    pytest.importorskip("PIL")
     missing = tmp_path / "missing.png"
     code, out, err = run([str(missing)], capsys)
     assert code == EXIT_INPUT_ERROR
@@ -101,9 +100,6 @@ def test_r6_3_missing_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -
 
 
 def test_r6_3_screenshot_without_a_board(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    pytest.importorskip("PIL")
-    from PIL import Image
-
     path = tmp_path / "blank.png"
     Image.new("RGB", (300, 500), "white").save(path)
     code, _, err = run([str(path)], capsys)

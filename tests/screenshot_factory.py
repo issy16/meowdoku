@@ -4,7 +4,7 @@ The style copies the real game (tests/fixtures/screenshots/IMG_7128.jpg): a
 beige page, a white rounded card, and rounded colored tiles with white gaps,
 measured at 105 px tiles, 9 px gaps, and about 8 px corner radius.
 
-Requires Pillow; only test_image_import.py imports this module.
+Used by test_image_import.py and test_cli.py.
 """
 
 from pathlib import Path

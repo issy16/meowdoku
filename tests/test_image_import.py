@@ -2,27 +2,23 @@
 
 import itertools
 import random
-import sys
 from pathlib import Path
 
 import pytest
+from PIL import Image, ImageDraw
 
-pytest.importorskip("PIL")
-
-from PIL import Image, ImageDraw  # noqa: E402
-
-from meowdoku.image_import import (  # noqa: E402
+from meowdoku.image_import import (
     COLOR_TOLERANCE,
     ImageImportError,
     ImportedPuzzle,
     import_screenshot,
     is_image_path,
 )
-from meowdoku.parser import parse_puzzle  # noqa: E402
-from meowdoku.puzzle import MeowdokuError, Puzzle  # noqa: E402
+from meowdoku.parser import parse_puzzle
+from meowdoku.puzzle import MeowdokuError, Puzzle
 
-from helpers import LABELS, random_puzzle  # noqa: E402
-from screenshot_factory import TEST_COLORS, add_phone_ui, draw_screenshot, hex_to_rgb, save  # noqa: E402
+from helpers import LABELS, random_puzzle
+from screenshot_factory import TEST_COLORS, add_phone_ui, draw_screenshot, hex_to_rgb, save
 
 REAL_SCREENSHOTS = Path(__file__).parent / "fixtures" / "screenshots"
 EXAMPLE = Puzzle.from_rows(["AABBB", "ACCCB", "ACDDB", "EEDDB", "EEEBB"])
@@ -218,12 +214,6 @@ def test_r9_4_not_an_image(tmp_path: Path) -> None:
 def test_missing_file_raises_os_error(tmp_path: Path) -> None:
     with pytest.raises(OSError):
         import_screenshot(tmp_path / "missing.png")
-
-
-def test_r9_2_missing_pillow_explains_how_to_install(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.setitem(sys.modules, "PIL", None)
-    with pytest.raises(MeowdokuError, match=r'pip install -e "\.\[image\]"'):
-        import_screenshot(tmp_path / "board.png")
 
 
 def test_text_files_are_not_screenshots(tmp_path: Path) -> None:

@@ -7,26 +7,21 @@ white cat face covering most of a tile (see tests/fixtures/screenshots/).
 Pipeline (docs/algorithm.md): find the tiles, count them, read each tile's
 color, group colors into regions, and read the mark on each tile.
 
-Pillow is optional (the `[image]` extra) and imported only when needed (R9.2).
+Uses Pillow, the project's one runtime dependency (NFR1).
 """
 
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
-from typing import TYPE_CHECKING
+
+from PIL import Image, ImageChops, UnidentifiedImageError
 
 from meowdoku.parser import parse_puzzle
 from meowdoku.puzzle import MAX_SIZE, Cell, MeowdokuError, Puzzle
 from meowdoku.state import Mark
 
-if TYPE_CHECKING:
-    from PIL.Image import Image
-
-BOX_FILTER = 4  # PIL.Image.Resampling.BOX: averages pixels, without importing Pillow here
-
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})
-INSTALL_HINT = 'python -m pip install -e ".[image]"'
 
 WHITE = (255, 255, 255)
 TILE_CONTRAST = 40  # channel difference that separates a tile from white or the page
@@ -120,11 +115,7 @@ def import_screenshot(path: Path) -> ImportedPuzzle:
     return ImportedPuzzle(parse_puzzle(text), text, colors, cats, crosses)
 
 
-def _open_image(path: Path) -> "Image":
-    try:
-        from PIL import Image, UnidentifiedImageError
-    except ImportError:
-        raise MeowdokuError(f"screenshot import needs Pillow; install it with: {INSTALL_HINT}") from None
+def _open_image(path: Path) -> Image.Image:
     try:
         with Image.open(path) as image:
             return image.convert("RGB")
@@ -135,7 +126,7 @@ def _open_image(path: Path) -> "Image":
 # Step 1: find the board
 
 
-def tile_mask(image: "Image") -> "Image":
+def tile_mask(image: Image.Image) -> Image.Image:
     """A mask of tile pixels: far from both white and the page color.
 
     White gaps, white ✕ marks, and the white parts of cat faces are not tiles.
@@ -144,7 +135,7 @@ def tile_mask(image: "Image") -> "Image":
     return _darker(_far_from(image, WHITE), _far_from(image, background))
 
 
-def find_board(tiles: "Image") -> Box:
+def find_board(tiles: Image.Image) -> Box:
     """Find the grid of tiles, even in a full phone screenshot.
 
     Rows that are mostly tile pixels form horizontal bands. The thin white gaps
@@ -155,7 +146,7 @@ def find_board(tiles: "Image") -> Box:
     if tiles.getbbox() is None:
         raise ImageImportError("couldn't find the board: no colored tiles were found")
     height = tiles.height
-    coverage = tiles.resize((1, height), BOX_FILTER).tobytes()
+    coverage = tiles.resize((1, height), Image.Resampling.BOX).tobytes()
     tile_rows = [y for y in range(height) if coverage[y] >= MIN_ROW_COVERAGE * 255]
     bands = _bridge_small_gaps(_consecutive_groups(tile_rows, 2))
     boards = [box for top, bottom in bands if (box := _square_box(tiles, top, bottom))]
@@ -186,7 +177,7 @@ def _bridge_small_gaps(runs: list[list[int]]) -> list[tuple[int, int]]:
     return bands
 
 
-def _square_box(tiles: "Image", top: int, bottom: int) -> Box | None:
+def _square_box(tiles: Image.Image, top: int, bottom: int) -> Box | None:
     """The box around the tile pixels between two rows, if it is square."""
     extent = tiles.crop((0, top, tiles.width, bottom)).getbbox()
     if extent is None:
@@ -198,7 +189,7 @@ def _square_box(tiles: "Image", top: int, bottom: int) -> Box | None:
     return box
 
 
-def _page_color(image: "Image") -> RGB:
+def _page_color(image: Image.Image) -> RGB:
     """The page background: the most common color among the image's corners."""
     width, height = image.size
     pixels = image.load()
@@ -206,31 +197,27 @@ def _page_color(image: "Image") -> RGB:
     return Counter(corners).most_common(1)[0][0]
 
 
-def _far_from(image: "Image", color: RGB) -> "Image":
+def _far_from(image: Image.Image, color: RGB) -> Image.Image:
     """A mask that is white where some channel differs from `color` by more than TILE_CONTRAST."""
-    from PIL import Image, ImageChops
-
     difference = ImageChops.difference(image, Image.new("RGB", image.size, color))
     red, green, blue = difference.split()
     largest = ImageChops.lighter(ImageChops.lighter(red, green), blue)
     return largest.point(lambda value: 255 if value > TILE_CONTRAST else 0)
 
 
-def _darker(first: "Image", second: "Image") -> "Image":
+def _darker(first: Image.Image, second: Image.Image) -> Image.Image:
     """Pixelwise AND of two masks."""
-    from PIL import ImageChops
-
     return ImageChops.darker(first, second)
 
 
 # Step 2: count the cells
 
 
-def count_cells(tiles: "Image", board: Box) -> int:
+def count_cells(tiles: Image.Image, board: Box) -> int:
     """Board size N from the spacing of the white gaps in both directions."""
     inside = tiles.crop((board.left, board.top, board.right, board.bottom))
-    across = _cells_along(inside.resize((board.width, 1), BOX_FILTER).tobytes())
-    down = _cells_along(inside.resize((1, board.height), BOX_FILTER).tobytes())
+    across = _cells_along(inside.resize((board.width, 1), Image.Resampling.BOX).tobytes())
+    down = _cells_along(inside.resize((1, board.height), Image.Resampling.BOX).tobytes())
     if across != down:
         raise ImageImportError(f"found a grid {across} cells wide and {down} cells tall; the board must be square")
     if not 1 <= across <= MAX_SIZE:
@@ -279,7 +266,7 @@ def cell_box(board: Box, size: int, cell: Cell) -> Box:
     )
 
 
-def _samples(image: "Image", box: Box, start: float, end: float, count: int) -> list[RGB]:
+def _samples(image: Image.Image, box: Box, start: float, end: float, count: int) -> list[RGB]:
     """Colors on an evenly spaced count×count grid between two shares of the box."""
     pixels = image.load()
     colors = []
@@ -293,7 +280,7 @@ def _samples(image: "Image", box: Box, start: float, end: float, count: int) -> 
     return colors
 
 
-def cell_color(image: "Image", box: Box) -> RGB:
+def cell_color(image: Image.Image, box: Box) -> RGB:
     """The tile's color: the most common color that isn't white or black.
 
     White (gaps, ✕ marks, cat faces) and black (cat fur) are skipped, so the
@@ -386,7 +373,7 @@ def _to_hex(color: RGB) -> str:
 # Step 5: read the marks (R9.1a)
 
 
-def read_mark(image: "Image", box: Box) -> Mark | None:
+def read_mark(image: Image.Image, box: Box) -> Mark | None:
     """Read the mark in the middle of a tile.
 
     Black there means a cat (its fur); white there means a ✕. A tile with too

@@ -76,8 +76,7 @@ AJ*JAAAAAA
   means the input was invalid, with the reason printed to stderr. Text files
   aren't accepted.
 
-`python -m meowdoku SCREENSHOT` does the same thing. Screenshot import needs
-Pillow: `python -m pip install -e ".[image]"`.
+`python -m meowdoku SCREENSHOT` does the same thing.
 
 ## Playing in a window
 
@@ -99,13 +98,14 @@ with the cats and ✕ marks from the screenshot.
 
 ## Development
 
-Requires Python 3.11 or newer. The solver itself uses only the standard
-library. pytest is the only development dependency.
+Requires Python 3.11 or newer. Installing the project also installs Pillow,
+which reads screenshots; the solver itself uses only the standard library.
+pytest is the only development dependency.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev,image]"
+python -m pip install -e ".[dev]"
 python -m pytest
 ```
 
@@ -126,4 +126,4 @@ docs/              requirements and algorithm design
 5. Command-line interface ✅
 6. Board state and next-available hints ✅
 7. Colored-board GUI (tkinter) ✅
-8. Screenshot import (Pillow, optional) ✅ (tuned on two real screenshots)
+8. Screenshot import (Pillow) ✅ (tuned on three real screenshots)
