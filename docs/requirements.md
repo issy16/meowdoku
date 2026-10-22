@@ -25,9 +25,13 @@ A solution to an N×N puzzle is a set of cat positions such that:
 - **R2.5** A well-formed puzzle with no solution is a valid result
   (`NONE`), not an error.
 
-## R3 Input format
+## R3 Text grid format
 
-- **R3.1** A puzzle is UTF-8 text with one line per board row.
+Players don't give text files; screenshots are the only input (removed at
+the owner's request). This format is internal: screenshot import produces
+it, so the same validation (R4) applies, and tests describe boards with it.
+
+- **R3.1** A puzzle is text with one line per board row.
 - **R3.2** Each non-whitespace character in a row is one cell's region label.
   Cells with the same label belong to the same region.
 - **R3.3** Blank lines and lines whose first non-whitespace character is `#`
@@ -65,16 +69,18 @@ reported together in `.problems`.
 
 ## R6 Command-line interface
 
-- **R6.1** `meowdoku PUZZLE_FILE` parses, solves, and prints the status line
-  followed by each solution grid, with cats shown as `*`.
+- **R6.1** `meowdoku SCREENSHOT` imports the screenshot (R9), solves, and
+  prints the status line followed by each solution grid, with cats shown as
+  `*`.
 - **R6.2** `--count-all` finds and reports the total number of solutions
   instead of stopping at two.
 - **R6.3** Exit code 0 when solving completes, whatever the status. Exit code
   2 for invalid input, with the error message on stderr and no traceback.
 - **R6.4** Coordinates shown to users are 1-indexed.
-- **R6.5** The CLI also accepts a `.png` or `.jpg` screenshot (R9). It prints
-  the detected text grid, and any cats and ✕ marks it read, before the solve
-  result so the user can review them.
+- **R6.5** Before the solve result, it prints the detected text grid and any
+  cats and ✕ marks it read, so the user can review them. Only `.png`, `.jpg`,
+  and `.jpeg` files are accepted; anything else, including text puzzle files,
+  is an input error (R6.3).
 
 ## R7 Board state and hints
 
@@ -115,7 +121,7 @@ reported together in `.problems`.
   colors. Text puzzles use a built-in palette of at least 16 distinguishable
   colors, assigned in order of each region's first appearance (row-major).
 - **R8.4** Clicking a cell cycles it: empty → ✕ → cat → empty.
-- **R8.5** Controls: **Open** (a text puzzle or a screenshot), **Hint**
+- **R8.5** Controls: **Open** (a screenshot), **Hint**
   (highlights the hint's cells and shows its reason; it never places marks,
   so the player makes the move), **Check** (highlights rule violations), **Solve** (shows a solution,
   noting when there are several or none), and **Reset**.
@@ -151,7 +157,9 @@ reported together in `.problems`.
 ## Non-functional requirements
 
 - **NFR1** Python 3.11+. Everything uses only the standard library, except
-  that screenshot import (R9) uses Pillow as an optional extra.
+  that screenshot import (R9) uses Pillow as an optional extra. Since
+  screenshots are the only input, the CLI and the GUI's Open need Pillow;
+  without it the GUI can still play its built-in example puzzle.
 - **NFR2** pytest is the only development dependency.
 - **NFR3** Type hints throughout. Small functions that can be tested independently.
 - **NFR4** Output is deterministic for the same input.
@@ -167,5 +175,6 @@ reported together in `.problems`.
 - Web or mobile interfaces
 - Puzzle generation
 - Pre-placed cats or marked cells in the input
-- Input formats other than the text grid (e.g. JSON)
+- Text puzzle files, or any input other than PNG/JPEG screenshots (text
+  files were removed at the owner's request)
 - Non-square boards or region counts other than N

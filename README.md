@@ -27,72 +27,67 @@ A Meowdoku puzzle is an N×N board divided into N colored regions. Place cats so
 3. Every region contains exactly one cat.
 4. No two cats touch, not even diagonally.
 
-## Input format
-
-A puzzle is a plain-text file with one line per row and one character per
-cell. Each character is a region label, and cells with the same label belong
-to the same region. Blank lines and lines starting with `#` are ignored.
-
-```text
-# 5x5 example with a unique solution
-AABBB
-ACCCB
-ACDDB
-EEDDB
-EEEBB
-```
-
-Requirements: the grid must be square, with N distinct region labels for
-an N×N board, every region orthogonally connected, and 1 ≤ N ≤ 16. See
-[docs/requirements.md](docs/requirements.md) for the full specification.
-
 ## Usage
 
+Give the `meowdoku` command a screenshot of the game, either a full phone
+screenshot or one cropped to the board (PNG or JPEG):
+
 ```bash
-meowdoku tests/fixtures/example_5x5.txt
+meowdoku tests/fixtures/screenshots/IMG_7128.jpg
 ```
 
 ```text
+Detected puzzle:
+ABBBBBBBCC
+ABDDEECCCC
+AAADEECFCA
+AGADEEEFFA
+AGADDDEFFA
+AGAAHHFFFA
+AGIAAHFFAA
+AIIIAHFFFA
+AIJJAHFFAA
+AJJJAAAAAA
+
 UNIQUE
 
-AABB*
-AC*CB
-*CDDB
-EED*B
-E*EBB
-5 cats: row 1, column 5; row 2, column 3; row 3, column 1; row 4, column 4; row 5, column 2
+ABBBBBB*CC
+ABDDEECCC*
+*AADEECFCA
+AGADEE*FFA
+AGAD*DEFFA
+AGAAHHFF*A
+A*IAAHFFAA
+AII*AHFFFA
+AIJJA*FFAA
+AJ*JAAAAAA
+10 cats: row 1, column 8; row 2, column 10; row 3, column 1; row 4, column 7; row 5, column 5; row 6, column 9; row 7, column 2; row 8, column 4; row 9, column 6; row 10, column 3
 ```
 
-- `*` marks a cat. Rows and columns are numbered from 1.
-- The first line is the status: `UNIQUE`, `NONE`, or `MULTIPLE`. A
-  `MULTIPLE` result shows the first two solutions.
+- First comes the grid it detected, one letter per region, so you can check
+  it against the game. If the screenshot shows cats or ✕ marks, they are
+  printed next (`*` cat, `x` ✕).
+- Then the status: `UNIQUE`, `NONE`, or `MULTIPLE`, and the solution with
+  `*` for cats. A `MULTIPLE` result shows the first two solutions. Rows and
+  columns are numbered from 1.
 - `--count-all` also prints `Solutions: N`, the total number of solutions.
   This can be slow on boards with many solutions.
 - Exit code 0 means the puzzle was solved (whatever the status). Exit code 2
-  means the input was invalid, with the reason printed to stderr.
+  means the input was invalid, with the reason printed to stderr. Text files
+  aren't accepted.
 
-`python -m meowdoku PUZZLE_FILE` does the same thing.
-
-### From a screenshot
-
-```bash
-meowdoku my-screenshot.png
-```
-
-PNG and JPEG screenshots of a Meowdoku board work in place of a text file:
-a full phone screenshot or one cropped to the board. The command prints the grid it detected, so you can
-check it, plus any cats (`*`) and ✕ marks (`x`) it read, then solves. This
-needs Pillow: `python -m pip install -e ".[image]"`.
+`python -m meowdoku SCREENSHOT` does the same thing. Screenshot import needs
+Pillow: `python -m pip install -e ".[image]"`.
 
 ## Playing in a window
 
 ```bash
-python -m meowdoku.gui tests/fixtures/example_5x5.txt
+python -m meowdoku.gui tests/fixtures/screenshots/IMG_7117.PNG
 ```
 
-Without a file, the window opens the example puzzle. **Open…** loads a puzzle
-file or a screenshot. Screenshots keep the game's own region colors, and the
-board starts with the cats and ✕ marks from the screenshot.
+Without a screenshot, the window opens a built-in example puzzle. **Open…**
+loads a screenshot. The board keeps the game's own region colors and starts
+with the cats and ✕ marks from the screenshot.
 
 - Click a cell to cycle it: empty → ✕ → cat → empty.
 - **Hint** highlights the cells behind the next logical step (orange) and

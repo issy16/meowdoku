@@ -1,28 +1,17 @@
-"""Read puzzles from the text format described in docs/requirements.md (R3),
-and format boards as text."""
+"""The text grid format of docs/requirements.md (R3), and boards as text.
+
+Players give screenshots, not text files. Screenshot import turns the image
+into this text grid and parses it here, so the same validation applies (R4);
+tests also describe boards this way.
+"""
 
 from collections.abc import Collection
 from dataclasses import dataclass
-from pathlib import Path
 
 from meowdoku.puzzle import Cell, Puzzle, PuzzleFormatError, count_of
 
 COMMENT_PREFIX = "#"
 CAT_SYMBOL = "*"
-
-
-def read_puzzle_file(path: Path) -> Puzzle:
-    """Read and parse a UTF-8 puzzle file (R3.1).
-
-    A leading byte-order mark is ignored. Raises OSError if the file can't be
-    read, and PuzzleFormatError if it isn't UTF-8 text.
-    """
-    data = path.read_bytes()
-    try:
-        text = data.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        raise PuzzleFormatError("file is not UTF-8 text") from None
-    return parse_puzzle(text)
 
 
 def format_board(puzzle: Puzzle, cats: Collection[Cell]) -> str:

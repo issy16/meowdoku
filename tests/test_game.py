@@ -180,19 +180,17 @@ def test_r8_6_completing_the_board_shows_solved() -> None:
     assert session.message == SOLVED_MESSAGE
 
 
-# Opening files
+# Opening files (R8.5): screenshots only
 
 
-def test_from_file_loads_puzzle(tmp_path: Path) -> None:
+def test_text_puzzle_files_are_not_accepted(tmp_path: Path) -> None:
     path = tmp_path / "puzzle.txt"
     path.write_text("AB\nAB\n", encoding="utf-8")
-    assert GameSession.from_file(path).puzzle == Puzzle.from_rows(["AB", "AB"])
+    with pytest.raises(MeowdokuError, match="is not a screenshot"):
+        GameSession.from_screenshot(path)
 
 
-def test_from_file_errors_are_meowdoku_or_os_errors(tmp_path: Path) -> None:
+def test_missing_screenshot_raises_os_error(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
     with pytest.raises(OSError):
-        GameSession.from_file(tmp_path / "missing.txt")
-    bad = tmp_path / "bad.txt"
-    bad.write_text("AA\nAA", encoding="utf-8")
-    with pytest.raises(MeowdokuError):
-        GameSession.from_file(bad)
+        GameSession.from_screenshot(tmp_path / "missing.png")

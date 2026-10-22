@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from meowdoku.parser import format_board, parse_puzzle, read_puzzle_file
+from meowdoku.parser import format_board, parse_puzzle
 from meowdoku.puzzle import Puzzle, PuzzleFormatError, PuzzleValidationError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -98,33 +98,6 @@ def test_oversized_board_raises_validation_error() -> None:
     rows = [chr(ord("A") + row) * 17 for row in range(17)]
     with pytest.raises(PuzzleValidationError):
         parse_puzzle("\n".join(rows))
-
-
-# Reading files (R3.1)
-
-
-def test_r3_1_reads_utf8_file(tmp_path: Path) -> None:
-    path = tmp_path / "puzzle.txt"
-    path.write_text("# comment\nAB\nAB\n", encoding="utf-8")
-    assert read_puzzle_file(path) == Puzzle.from_rows(["AB", "AB"])
-
-
-def test_r3_1_ignores_byte_order_mark(tmp_path: Path) -> None:
-    path = tmp_path / "puzzle.txt"
-    path.write_bytes(b"\xef\xbb\xbfAB\nAB\n")
-    assert read_puzzle_file(path) == Puzzle.from_rows(["AB", "AB"])
-
-
-def test_r3_1_non_utf8_file_is_a_format_error(tmp_path: Path) -> None:
-    path = tmp_path / "picture.png"
-    path.write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe")
-    with pytest.raises(PuzzleFormatError, match="not UTF-8 text"):
-        read_puzzle_file(path)
-
-
-def test_missing_file_raises_os_error(tmp_path: Path) -> None:
-    with pytest.raises(OSError):
-        read_puzzle_file(tmp_path / "missing.txt")
 
 
 # Formatting boards

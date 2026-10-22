@@ -32,7 +32,7 @@ WHITE = (255, 255, 255)
 TILE_CONTRAST = 40  # channel difference that separates a tile from white or the page
 SQUARE_TOLERANCE = 0.1  # allowed width/height mismatch of the board
 MIN_ROW_COVERAGE = 0.3  # share of a row that is tiles, for a row through the board
-MAX_ROW_GAP = 0.02  # gaps up to this share of the image width join rows into one band
+BRIDGE_SHARE = 0.3  # bridge a gap at most this share of the row runs on both sides
 GAP_COVERAGE = 0.25  # a pixel column (or row) this little covered by tiles is a gap
 CELL_INSET = 0.08  # skip this share of each cell edge: the white gap around the tile
 CELL_SAMPLES = 16  # color samples per cell, per direction
@@ -98,9 +98,12 @@ def is_image_path(path: Path) -> bool:
 def import_screenshot(path: Path) -> ImportedPuzzle:
     """Read a screenshot into a validated puzzle, its colors, and its marks (R9.1).
 
-    Raises OSError if the file can't be read, ImageImportError if no board is
-    found, and PuzzleValidationError if the detected grid isn't a valid puzzle.
+    Raises OSError if the file can't be read, ImageImportError if it isn't a
+    screenshot or no board is found, and PuzzleValidationError if the detected
+    grid isn't a valid puzzle.
     """
+    if not is_image_path(path):
+        raise ImageImportError(f"{path.name} is not a screenshot; use a .png, .jpg, or .jpeg file")
     image = _open_image(path)
     tiles = tile_mask(image)
     board = find_board(tiles)
@@ -144,20 +147,43 @@ def tile_mask(image: "Image") -> "Image":
 def find_board(tiles: "Image") -> Box:
     """Find the grid of tiles, even in a full phone screenshot.
 
-    Rows that are mostly tile pixels form horizontal bands (small gaps between
-    tile rows are bridged). Headers, icons, buttons, and ad banners make short,
-    wide bands; the board is the largest band whose tile area is square.
+    Rows that are mostly tile pixels form horizontal bands. The thin white gaps
+    between tile rows are bridged, so the whole board is one band. Headers,
+    icons, buttons, and ad banners make short, wide bands; the board is the
+    largest band whose tile area is square.
     """
     if tiles.getbbox() is None:
         raise ImageImportError("couldn't find the board: no colored tiles were found")
-    width, height = tiles.size
+    height = tiles.height
     coverage = tiles.resize((1, height), BOX_FILTER).tobytes()
     tile_rows = [y for y in range(height) if coverage[y] >= MIN_ROW_COVERAGE * 255]
-    bands = _consecutive_groups(tile_rows, max(2, int(MAX_ROW_GAP * width)))
-    boards = [box for band in bands if (box := _square_box(tiles, band[0], band[-1] + 1))]
+    bands = _bridge_small_gaps(_consecutive_groups(tile_rows, 2))
+    boards = [box for top, bottom in bands if (box := _square_box(tiles, top, bottom))]
     if not boards:
         raise ImageImportError("couldn't find the board: no square grid of colored tiles was found")
     return max(boards, key=lambda box: box.width * box.height)
+
+
+def _bridge_small_gaps(runs: list[list[int]]) -> list[tuple[int, int]]:
+    """Join runs of rows into bands across gaps that are small next to the runs.
+
+    The white gap between two tile rows is small compared with the tiles on
+    either side, at any board size or image scale. The space between the
+    board and other screen parts is not.
+    """
+    bands: list[tuple[int, int]] = []
+    previous_run_height = 0
+    for run in runs:
+        top, bottom, height = run[0], run[-1] + 1, len(run)
+        if bands:
+            band_top, band_bottom = bands[-1]
+            if top - band_bottom <= BRIDGE_SHARE * min(previous_run_height, height):
+                bands[-1] = (band_top, bottom)
+                previous_run_height = height
+                continue
+        bands.append((top, bottom))
+        previous_run_height = height
+    return bands
 
 
 def _square_box(tiles: "Image", top: int, bottom: int) -> Box | None:

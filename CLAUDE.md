@@ -33,7 +33,7 @@ without Pillow they are skipped, and everything else must still pass.
 ```text
 src/meowdoku/
   puzzle.py        Puzzle type, structural validation, error types
-  parser.py        text/file -> Puzzle, Puzzle + cats -> text
+  parser.py        text grid -> Puzzle (internal and tests only), Puzzle + cats -> text
   rules.py         solution validator (find_violations)
   solver.py        backtracking search (iter_solutions, solve)
   state.py         BoardState: player's cats and ✕ marks

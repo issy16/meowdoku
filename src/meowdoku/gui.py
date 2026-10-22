@@ -1,6 +1,6 @@
 """Tkinter window: a colored Meowdoku board with Open, Hint, Check, Solve, Reset (R8).
 
-Run with `python -m meowdoku.gui [PUZZLE_FILE]`. This module only draws and
+Run with `python -m meowdoku.gui [SCREENSHOT]`. This module only draws and
 handles events; all game logic lives in game.py (R8.7).
 """
 
@@ -100,16 +100,13 @@ class MeowdokuApp:
 
     def open_file(self) -> None:
         path = filedialog.askopenfilename(
-            title="Open puzzle",
-            filetypes=[
-                ("Puzzles and screenshots", "*.txt *.png *.jpg *.jpeg"),
-                ("All files", "*"),
-            ],
+            title="Open a screenshot",
+            filetypes=[("Screenshots", "*.png *.jpg *.jpeg"), ("All files", "*")],
         )
         if not path:
             return
         try:
-            self.session = GameSession.from_file(Path(path))
+            self.session = GameSession.from_screenshot(Path(path))
         except (OSError, MeowdokuError) as error:
             messagebox.showerror("Can't open puzzle", str(error))
             return
@@ -222,14 +219,14 @@ class MeowdokuApp:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m meowdoku.gui", description="Play Meowdoku.")
-    parser.add_argument("puzzle_file", nargs="?", type=Path, help="puzzle text file or screenshot (optional)")
+    parser.add_argument("screenshot", nargs="?", type=Path, help="a .png or .jpg screenshot (optional)")
     args = parser.parse_args(argv)
 
     root = tk.Tk()
     session = GameSession.from_text(EXAMPLE_PUZZLE)
-    if args.puzzle_file is not None:
+    if args.screenshot is not None:
         try:
-            session = GameSession.from_file(args.puzzle_file)
+            session = GameSession.from_screenshot(args.screenshot)
         except (OSError, MeowdokuError) as error:
             messagebox.showerror("Can't open puzzle", f"{error}\n\nShowing the example puzzle instead.")
     MeowdokuApp(root, session)

@@ -5,15 +5,17 @@ from pathlib import Path
 import pytest
 
 from meowdoku.cli import EXIT_INPUT_ERROR, EXIT_OK, main
+from meowdoku.puzzle import Puzzle
 
-FIXTURES = Path(__file__).parent / "fixtures"
-EXAMPLE = FIXTURES / "example_5x5.txt"
+EXAMPLE_ROWS = ["AABBB", "ACCCB", "ACDDB", "EEDDB", "EEEBB"]
 
 
-def write_puzzle(tmp_path: Path, text: str) -> Path:
-    path = tmp_path / "puzzle.txt"
-    path.write_text(text, encoding="utf-8")
-    return path
+def screenshot(tmp_path: Path, rows: list[str]) -> Path:
+    """A synthetic screenshot of the board; needs Pillow."""
+    pytest.importorskip("PIL")
+    from screenshot_factory import draw_screenshot, save
+
+    return save(draw_screenshot(Puzzle.from_rows(rows)), tmp_path / "board.png")
 
 
 def run(argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
@@ -25,11 +27,16 @@ def run(argv: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str, 
 # R6.1 Solving and output
 
 
-def test_r6_1_unique_puzzle_prints_status_board_and_cats(capsys: pytest.CaptureFixture[str]) -> None:
-    code, out, err = run([str(EXAMPLE)], capsys)
+def test_r6_1_unique_puzzle_prints_grid_status_board_and_cats(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, err = run([str(screenshot(tmp_path, EXAMPLE_ROWS))], capsys)
     assert code == EXIT_OK
     assert err == ""
     assert out == (
+        "Detected puzzle:\n"
+        "AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB\n"
+        "\n"
         "UNIQUE\n"
         "\n"
         "AABB*\n"
@@ -43,20 +50,15 @@ def test_r6_1_unique_puzzle_prints_status_board_and_cats(capsys: pytest.CaptureF
 
 
 def test_r6_1_unsolvable_puzzle_exits_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    code, out, _ = run([str(write_puzzle(tmp_path, "AB\nAB"))], capsys)
+    code, out, _ = run([str(screenshot(tmp_path, ["AB", "AB"]))], capsys)
     assert code == EXIT_OK
-    assert out == "NONE\nThis puzzle has no solution.\n"
+    assert out.endswith("NONE\nThis puzzle has no solution.\n")
 
 
 def test_r6_1_multiple_solutions_shows_first_two(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    code, out, _ = run([str(write_puzzle(tmp_path, "ABCD\n" * 4))], capsys)
+    code, out, _ = run([str(screenshot(tmp_path, ["ABCD"] * 4))], capsys)
     assert code == EXIT_OK
-    assert out.splitlines()[:4] == [
-        "MULTIPLE",
-        "Showing the first 2 solutions.",
-        "",
-        "Solution 1:",
-    ]
+    assert "MULTIPLE\nShowing the first 2 solutions.\n\nSolution 1:" in out
     assert "Solution 2:" in out
     assert "Solution 3:" not in out
 
@@ -65,41 +67,48 @@ def test_r6_1_multiple_solutions_shows_first_two(tmp_path: Path, capsys: pytest.
 
 
 def test_r6_2_count_all_reports_total(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    path = write_puzzle(tmp_path, "ABCDEF\n" * 6)
-    _, out, _ = run([str(path), "--count-all"], capsys)
-    assert out.splitlines()[:3] == ["MULTIPLE", "Solutions: 90", "Showing the first 2 solutions."]
+    _, out, _ = run([str(screenshot(tmp_path, ["ABCDEF"] * 6)), "--count-all"], capsys)
+    assert "MULTIPLE\nSolutions: 90\nShowing the first 2 solutions." in out
     assert "Solution 3:" not in out
 
 
-def test_r6_2_count_all_on_unique_puzzle(capsys: pytest.CaptureFixture[str]) -> None:
-    _, out, _ = run([str(EXAMPLE), "--count-all"], capsys)
-    assert out.splitlines()[:2] == ["UNIQUE", "Solutions: 1"]
+def test_r6_2_count_all_on_unique_puzzle(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    _, out, _ = run([str(screenshot(tmp_path, EXAMPLE_ROWS)), "--count-all"], capsys)
+    assert "UNIQUE\nSolutions: 1\n" in out
 
 
 # R6.3 Input errors
 
 
+def test_r6_3_text_puzzle_files_are_not_accepted(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    path = tmp_path / "puzzle.txt"
+    path.write_text("\n".join(EXAMPLE_ROWS), encoding="utf-8")
+    code, out, err = run([str(path)], capsys)
+    assert code == EXIT_INPUT_ERROR
+    assert out == ""
+    assert err == (
+        f"meowdoku: error: {path}: puzzle.txt is not a screenshot; use a .png, .jpg, or .jpeg file\n"
+    )
+
+
 def test_r6_3_missing_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    missing = tmp_path / "missing.txt"
+    pytest.importorskip("PIL")
+    missing = tmp_path / "missing.png"
     code, out, err = run([str(missing)], capsys)
     assert code == EXIT_INPUT_ERROR
     assert out == ""
     assert err == f"meowdoku: error: cannot read {missing}: No such file or directory\n"
 
 
-def test_r6_3_format_error_names_file_and_line(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    path = write_puzzle(tmp_path, "ABC\nAB\nABC")
+def test_r6_3_screenshot_without_a_board(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    pytest.importorskip("PIL")
+    from PIL import Image
+
+    path = tmp_path / "blank.png"
+    Image.new("RGB", (300, 500), "white").save(path)
     code, _, err = run([str(path)], capsys)
     assert code == EXIT_INPUT_ERROR
-    assert err == f"meowdoku: error: {path}: line 2: row has 2 cells; expected 3 to match the first row (line 1)\n"
-
-
-def test_r6_3_validation_error_lists_problems(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    code, _, err = run([str(write_puzzle(tmp_path, "ABA\nBBB\nBBB"))], capsys)
-    assert code == EXIT_INPUT_ERROR
-    assert "invalid puzzle:" in err
-    assert "  - found 2 regions (A, B); a 3x3 board needs exactly 3" in err
-    assert "  - region 'A' is split" in err
+    assert "couldn't find the board" in err
 
 
 def test_r6_3_usage_error_exits_2(capsys: pytest.CaptureFixture[str]) -> None:
@@ -109,7 +118,8 @@ def test_r6_3_usage_error_exits_2(capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_r6_3_real_process_has_exit_code_and_no_traceback(tmp_path: Path) -> None:
-    path = write_puzzle(tmp_path, "AA\nAA")
+    path = tmp_path / "puzzle.txt"
+    path.write_text("AA\nAA", encoding="utf-8")
     completed = subprocess.run(
         [sys.executable, "-m", "meowdoku", str(path)],
         capture_output=True,
@@ -119,4 +129,4 @@ def test_r6_3_real_process_has_exit_code_and_no_traceback(tmp_path: Path) -> Non
     assert completed.returncode == EXIT_INPUT_ERROR
     assert completed.stdout == ""
     assert "Traceback" not in completed.stderr
-    assert "found 1 region (A)" in completed.stderr
+    assert "is not a screenshot" in completed.stderr

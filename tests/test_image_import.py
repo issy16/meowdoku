@@ -18,7 +18,7 @@ from meowdoku.image_import import (  # noqa: E402
     import_screenshot,
     is_image_path,
 )
-from meowdoku.parser import read_puzzle_file  # noqa: E402
+from meowdoku.parser import parse_puzzle  # noqa: E402
 from meowdoku.puzzle import MeowdokuError, Puzzle  # noqa: E402
 
 from helpers import LABELS, random_puzzle  # noqa: E402
@@ -161,6 +161,14 @@ def test_reads_full_phone_screenshots(tmp_path: Path, index: int) -> None:
     assert import_screenshot(save(image, tmp_path / "phone.png")).puzzle == canonical(puzzle)
 
 
+@pytest.mark.parametrize("size", range(2, 7))
+def test_reads_small_boards_with_big_tiles_on_a_phone(tmp_path: Path, size: int) -> None:
+    """The gaps between big tiles are wide, so bridging can't use a fixed pixel width."""
+    puzzle = random_puzzle(random.Random(size), size)
+    image = add_phone_ui(draw_screenshot(puzzle, cell=1130 // size, origin=(38, 40)), seed=size)
+    assert import_screenshot(save(image, tmp_path / "phone.png")).puzzle == canonical(puzzle)
+
+
 @pytest.mark.parametrize("index", range(0, len(VARIATIONS), 2), ids=IDS[::2])
 def test_reads_full_phone_screenshots_with_marks_as_jpeg(tmp_path: Path, index: int) -> None:
     puzzle, cell, origin = VARIATIONS[index]
@@ -218,6 +226,13 @@ def test_r9_2_missing_pillow_explains_how_to_install(monkeypatch: pytest.MonkeyP
         import_screenshot(tmp_path / "board.png")
 
 
+def test_text_files_are_not_screenshots(tmp_path: Path) -> None:
+    path = tmp_path / "puzzle.txt"
+    path.write_text("AB\nAB", encoding="utf-8")
+    with pytest.raises(ImageImportError, match="puzzle.txt is not a screenshot"):
+        import_screenshot(path)
+
+
 def test_is_image_path() -> None:
     assert is_image_path(Path("a.PNG"))
     assert is_image_path(Path("b.jpeg"))
@@ -236,7 +251,7 @@ def real_screenshot_cases() -> list[Path]:
 
 @pytest.mark.parametrize("path", real_screenshot_cases(), ids=lambda path: path.name)
 def test_r9_5_real_screenshots(path: Path) -> None:
-    expected = read_puzzle_file(path.with_suffix(".txt"))
+    expected = parse_puzzle(path.with_suffix(".txt").read_text(encoding="utf-8"))
     imported = import_screenshot(path)
     assert imported.puzzle == canonical(expected)
     assert imported.marks_text == expected_marks(path, expected.size)
@@ -275,7 +290,7 @@ def test_r6_5_cli_reports_unreadable_screenshot(tmp_path: Path, capsys: pytest.C
 def test_r8_3_game_opened_from_screenshot_keeps_its_colors(tmp_path: Path) -> None:
     from meowdoku.game import IMPORTED_MESSAGE, GameSession
 
-    session = GameSession.from_file(save(draw_screenshot(EXAMPLE), tmp_path / "example.png"))
+    session = GameSession.from_screenshot(save(draw_screenshot(EXAMPLE), tmp_path / "example.png"))
     assert session.puzzle == EXAMPLE
     assert color_distance(session.colors["A"], TEST_COLORS[0]) <= 3
     assert session.message == IMPORTED_MESSAGE
@@ -285,7 +300,7 @@ def test_r9_1a_game_starts_from_imported_marks(tmp_path: Path) -> None:
     from meowdoku.game import GameSession
 
     marks = {(0, 4): "cat", (1, 0): "cross", (2, 2): "cross"}
-    session = GameSession.from_file(save(draw_screenshot(EXAMPLE, marks=marks), tmp_path / "b.png"))
+    session = GameSession.from_screenshot(save(draw_screenshot(EXAMPLE, marks=marks), tmp_path / "b.png"))
     assert session.state.cats == {(0, 4)}
     assert session.state.crosses == {(1, 0), (2, 2)}
     assert session.message == (

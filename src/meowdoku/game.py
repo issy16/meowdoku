@@ -11,8 +11,8 @@ from typing import Self
 
 from meowdoku.colors import name_regions, region_phrases
 from meowdoku.hints import HintKind, next_hint
-from meowdoku.image_import import import_screenshot, is_image_path
-from meowdoku.parser import parse_puzzle, read_puzzle_file
+from meowdoku.image_import import import_screenshot
+from meowdoku.parser import parse_puzzle
 from meowdoku.puzzle import Cell, Puzzle, count_of
 from meowdoku.rules import find_conflicts, is_valid_solution
 from meowdoku.solver import SolveStatus, solve
@@ -93,16 +93,15 @@ class GameSession:
 
     @classmethod
     def from_text(cls, text: str) -> Self:
+        """For the built-in example puzzle and tests; players open screenshots."""
         return cls(parse_puzzle(text))
 
     @classmethod
-    def from_file(cls, path: Path) -> Self:
-        """Open a text puzzle or a screenshot (R8.5).
+    def from_screenshot(cls, path: Path) -> Self:
+        """Open a screenshot, starting from its cats and ✕ marks (R8.5, R9.1a).
 
         Raises OSError or MeowdokuError for files that can't be used.
         """
-        if not is_image_path(path):
-            return cls(read_puzzle_file(path))
         imported = import_screenshot(path)
         session = cls(imported.puzzle, imported.colors)
         session.state = BoardState(imported.puzzle.size, imported.cats, imported.crosses)
