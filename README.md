@@ -13,8 +13,8 @@ Planned features:
   progress, with a plain-English reason. Hints never reveal answers or
   place marks for you.
 
-> **Status:** Milestone 4 (solver). Usable from Python; the command-line
-> interface comes next. See [Roadmap](#roadmap).
+> **Status:** Milestone 5 (command-line interface). Hints, the GUI, and
+> screenshot import come next. See [Roadmap](#roadmap).
 
 ## Rules
 
@@ -44,20 +44,32 @@ Requirements: the grid must be square, with N distinct region labels for
 an N×N board, every region orthogonally connected, and 1 ≤ N ≤ 16. See
 [docs/requirements.md](docs/requirements.md) for the full specification.
 
-## Output (planned)
+## Usage
+
+```bash
+meowdoku tests/fixtures/example_5x5.txt
+```
 
 ```text
 UNIQUE
+
 AABB*
 AC*CB
 *CDDB
 EED*B
 E*EBB
+5 cats: row 1, column 5; row 2, column 3; row 3, column 1; row 4, column 4; row 5, column 2
 ```
 
-`*` marks a cat. The status line is `UNIQUE`, `NONE`, or `MULTIPLE`. By
-default, a `MULTIPLE` result shows two example solutions. Coordinates shown to
-users are 1-indexed.
+- `*` marks a cat. Rows and columns are numbered from 1.
+- The first line is the status: `UNIQUE`, `NONE`, or `MULTIPLE`. A
+  `MULTIPLE` result shows the first two solutions.
+- `--count-all` also prints `Solutions: N`, the total number of solutions.
+  This can be slow on boards with many solutions.
+- Exit code 0 means the puzzle was solved (whatever the status). Exit code 2
+  means the input was invalid, with the reason printed to stderr.
+
+`python -m meowdoku PUZZLE_FILE` does the same thing.
 
 ## Development
 
@@ -85,7 +97,7 @@ docs/              requirements and algorithm design
 2. Puzzle representation, parser, and input validation ✅
 3. Solution validator (rule checker) ✅
 4. Backtracking solver, cross-checked against independent oracles ✅
-5. Command-line interface
+5. Command-line interface ✅
 6. Board state and next-available hints
 7. Colored-board GUI (tkinter)
 8. Screenshot import (Pillow, optional)

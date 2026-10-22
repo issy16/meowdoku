@@ -30,7 +30,7 @@ python -m pytest          # run all tests; must pass before every commit
 ```text
 src/meowdoku/
   puzzle.py        Puzzle type, structural validation, error types
-  parser.py        text -> Puzzle, Solution -> text
+  parser.py        text/file -> Puzzle, Puzzle + cats -> text
   rules.py         solution validator (find_violations)
   solver.py        backtracking search (iter_solutions, solve)
   state.py         BoardState: player's cats and ✕ marks

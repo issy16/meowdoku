@@ -145,7 +145,10 @@ reported together in `.problems`.
 - **NFR2** pytest is the only development dependency.
 - **NFR3** Type hints throughout. Small functions that can be tested independently.
 - **NFR4** Output is deterministic for the same input.
-- **NFR5** Puzzles up to N = 12 solve in under one second on a typical laptop.
+- **NFR5** Puzzles up to N = 12 with a unique solution, as in the real game,
+  solve in under one second on a typical laptop. Puzzles with no solution or
+  several may take longer (accepted by the owner after Milestone 4; timings
+  in docs/algorithm.md).
 
 ## Out of scope (for now)
 

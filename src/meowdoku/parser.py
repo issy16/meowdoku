@@ -1,10 +1,38 @@
-"""Read puzzles from the text format described in docs/requirements.md (R3)."""
+"""Read puzzles from the text format described in docs/requirements.md (R3),
+and format boards as text."""
 
+from collections.abc import Collection
 from dataclasses import dataclass
+from pathlib import Path
 
-from meowdoku.puzzle import Puzzle, PuzzleFormatError, count_of
+from meowdoku.puzzle import Cell, Puzzle, PuzzleFormatError, count_of
 
 COMMENT_PREFIX = "#"
+CAT_SYMBOL = "*"
+
+
+def read_puzzle_file(path: Path) -> Puzzle:
+    """Read and parse a UTF-8 puzzle file (R3.1).
+
+    A leading byte-order mark is ignored. Raises OSError if the file can't be
+    read, and PuzzleFormatError if it isn't UTF-8 text.
+    """
+    data = path.read_bytes()
+    try:
+        text = data.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise PuzzleFormatError("file is not UTF-8 text") from None
+    return parse_puzzle(text)
+
+
+def format_board(puzzle: Puzzle, cats: Collection[Cell]) -> str:
+    """Draw the board as region labels, with each cat shown as `*`."""
+    return "\n".join(
+        "".join(
+            CAT_SYMBOL if (row, col) in cats else label for col, label in enumerate(labels)
+        )
+        for row, labels in enumerate(puzzle.regions)
+    )
 
 
 @dataclass(frozen=True)
