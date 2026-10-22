@@ -8,6 +8,7 @@ from meowdoku.puzzle import (
     PuzzleFormatError,
     PuzzleValidationError,
 )
+from meowdoku.rules import Rule, RuleViolation, find_violations, is_valid_solution
 
 __version__ = "0.1.0"
 
@@ -17,5 +18,9 @@ __all__ = [
     "Puzzle",
     "PuzzleFormatError",
     "PuzzleValidationError",
+    "Rule",
+    "RuleViolation",
+    "find_violations",
+    "is_valid_solution",
     "parse_puzzle",
 ]
