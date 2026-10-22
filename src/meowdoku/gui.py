@@ -101,7 +101,10 @@ class MeowdokuApp:
     def open_file(self) -> None:
         path = filedialog.askopenfilename(
             title="Open puzzle",
-            filetypes=[("Puzzle text", "*.txt"), ("All files", "*")],
+            filetypes=[
+                ("Puzzles and screenshots", "*.txt *.png *.jpg *.jpeg"),
+                ("All files", "*"),
+            ],
         )
         if not path:
             return
@@ -219,7 +222,7 @@ class MeowdokuApp:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m meowdoku.gui", description="Play Meowdoku.")
-    parser.add_argument("puzzle_file", nargs="?", type=Path, help="puzzle text file (optional)")
+    parser.add_argument("puzzle_file", nargs="?", type=Path, help="puzzle text file or screenshot (optional)")
     args = parser.parse_args(argv)
 
     root = tk.Tk()

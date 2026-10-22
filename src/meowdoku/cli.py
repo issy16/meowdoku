@@ -1,10 +1,13 @@
-"""Command-line interface: `meowdoku PUZZLE_FILE [--count-all]` (R6)."""
+"""Command-line interface: `meowdoku PUZZLE_FILE [--count-all]` (R6).
+
+PUZZLE_FILE may be a text puzzle or a PNG/JPEG screenshot (R6.5)."""
 
 import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from meowdoku.image_import import import_screenshot, is_image_path
 from meowdoku.parser import format_board, read_puzzle_file
 from meowdoku.puzzle import MeowdokuError, Puzzle, count_of, describe_cell
 from meowdoku.solver import DEFAULT_MAX_SOLUTIONS, Solution, SolveResult, SolveStatus, solve
@@ -18,7 +21,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     path: Path = args.puzzle_file
     try:
-        puzzle = read_puzzle_file(path)
+        if is_image_path(path):
+            imported = import_screenshot(path)
+            print(f"Detected puzzle:\n{imported.text}\n")
+            puzzle = imported.puzzle
+        else:
+            puzzle = read_puzzle_file(path)
     except OSError as error:
         _print_error(f"cannot read {path}: {error.strerror or error}")
         return EXIT_INPUT_ERROR
@@ -37,7 +45,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         prog="meowdoku",
         description="Solve a Meowdoku puzzle and report whether it has none, one, or several solutions.",
     )
-    parser.add_argument("puzzle_file", type=Path, help="puzzle text file (see README.md)")
+    parser.add_argument(
+        "puzzle_file", type=Path, help="puzzle text file, or a .png/.jpg screenshot (see README.md)"
+    )
     parser.add_argument(
         "--count-all",
         action="store_true",

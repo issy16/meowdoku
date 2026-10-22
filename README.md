@@ -13,8 +13,9 @@ Planned features:
   progress, with a plain-English reason. Hints never reveal answers or
   place marks for you.
 
-> **Status:** Milestone 7 (colored-board GUI). Screenshot import comes next.
-> See [Roadmap](#roadmap).
+> **Status:** All 8 milestones are built. Screenshot import is tuned on
+> synthetic images and still needs checking against real Meowdoku
+> screenshots. See [Roadmap](#roadmap).
 
 ## Rules
 
@@ -71,14 +72,25 @@ E*EBB
 
 `python -m meowdoku PUZZLE_FILE` does the same thing.
 
+### From a screenshot
+
+```bash
+meowdoku my-screenshot.png
+```
+
+PNG and JPEG screenshots of a Meowdoku board work in place of a text file.
+The command prints the grid it detected, so you can check it, then solves.
+Cats and ✕ marks in the screenshot are ignored. This needs Pillow:
+`python -m pip install -e ".[image]"`.
+
 ## Playing in a window
 
 ```bash
 python -m meowdoku.gui tests/fixtures/example_5x5.txt
 ```
 
-Without a file, the window opens the example puzzle. **Open…** loads
-another puzzle file.
+Without a file, the window opens the example puzzle. **Open…** loads a puzzle
+file or a screenshot. Screenshots keep the game's own region colors.
 
 - Click a cell to cycle it: empty → ✕ → cat → empty.
 - **Hint** highlights the cells behind the next logical step (orange) and
@@ -96,7 +108,7 @@ library. pytest is the only development dependency.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,image]"
 python -m pytest
 ```
 
@@ -117,4 +129,4 @@ docs/              requirements and algorithm design
 5. Command-line interface ✅
 6. Board state and next-available hints ✅
 7. Colored-board GUI (tkinter) ✅
-8. Screenshot import (Pillow, optional)
+8. Screenshot import (Pillow, optional) ✅ (real-screenshot tuning pending)

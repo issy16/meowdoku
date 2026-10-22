@@ -157,22 +157,55 @@ about 0.01 s on 10×10–12×12 boards.
 
 ## Screenshot import
 
-1. Load the image with Pillow and convert it to RGB.
-2. Find the board: the largest roughly square area enclosed by grid lines.
-3. Find N by counting the grid lines along each edge (they must agree).
-4. Find each cell's region color: the most common color inside the cell,
-   excluding a margin along the grid lines. A cat or ✕ icon covers only part
-   of the cell, so the background still wins and marks are ignored (R9.1a).
-5. Group cell colors into regions. Colors close together (by RGB distance)
-   form a group. If there aren't exactly N groups, raise `ImageImportError`.
-6. Label the regions `A`, `B`, … in row-major order of first appearance, then
-   hand the text grid to the normal parser.
+`image_import.py` turns a screenshot into the text grid in four steps. Each
+step is a separate function, so tuning one doesn't disturb the others.
 
-The thresholds are tuned against the sample screenshots in
-`tests/fixtures/screenshots/`, including at least one in-progress board with
-cats and ✕ marks. Tests also use synthetic images generated with known
-regions, with and without drawn marks, so detection can be checked without
-real screenshots.
+1. **Find the board (`find_board`).** Look for rows that hold one long,
+   solid run of dark pixels, and pair them into the largest square whose left
+   and right sides are dark too. That is the board's outer frame. Then step
+   inward past the frame's thickness, measuring along several off-center
+   lines so a grid line doesn't fool the measurement.
+2. **Count the cells (`count_cells`).** Read pixel colors straight across
+   the board along 60 rows and 60 columns. At each position, ask whether the
+   color changes sharply within a few pixels, and take the median answer.
+   Grid lines cross every row and column, so they survive the median; cats
+   and ✕ marks cross only some, so they don't. The median spacing between
+   lines gives N, which must agree in both directions.
+3. **Read cell colors (`cell_color`).** Sample a band just inside each cell's
+   edges (12–17% in), clear of the grid lines and of icons, which sit in the
+   middle of the cell. Take the most common color there. This is how cats and
+   ✕ marks are ignored (R9.1a).
+4. **Group colors into regions (`group_colors`).** Join cells whose colors
+   are within RGB distance 28, in chains. There must be exactly N groups,
+   otherwise raise `ImageImportError` ("found 6 region colors; expected 7").
+   Label groups `A`, `B`, … in row-major order of first appearance, then
+   pass the text grid to the normal parser, which validates it (R4).
+
+**Changes from the original plan, found by the synthetic tests:**
+
+- Grid lines are found by *color change*, not brightness: thin gray lines
+  can be as bright as pastel region colors.
+- Changes count if *nearby*, because a thick region border and the thin grid
+  line it continues change color a few pixels apart.
+- Colors are sampled near the cell *edges*, not over the whole cell: a cat
+  icon covers most of a cell's middle.
+
+**Status: tuned on synthetic screenshots only.** The tests draw boards
+from 4×4 to 12×12, with:
+
+- a dark header bar and text-like blocks around the board
+- white and light-gray regions
+- JPEG compression
+- random cats and ✕ marks
+
+The constants at the top of `image_import.py` still need checking against
+real screenshots in `tests/fixtures/screenshots/` (R9.5). A phone-sized
+screenshot (1170×2094) imports in about 0.5 s.
+
+**Known limits:** the board must have a dark outer border on a lighter
+background, and regions must have clearly different colors. Dark-mode
+screenshots, or games without a dark board border, will need changes to
+step 1.
 
 ## Alternatives considered
 

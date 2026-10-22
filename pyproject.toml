@@ -12,6 +12,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+image = ["Pillow>=10"]
 
 [project.scripts]
 meowdoku = "meowdoku.cli:main"

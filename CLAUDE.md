@@ -25,6 +25,9 @@ source .venv/bin/activate
 python -m pytest          # run all tests; must pass before every commit
 ```
 
+Screenshot tests need the image extra (`pip install -e ".[dev,image]"`);
+without Pillow they are skipped, and everything else must still pass.
+
 ## Architecture
 
 ```text

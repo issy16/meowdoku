@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Self
 
 from meowdoku.hints import HintKind, next_hint
+from meowdoku.image_import import import_screenshot, is_image_path
 from meowdoku.parser import parse_puzzle, read_puzzle_file
 from meowdoku.puzzle import Cell, Puzzle, count_of
 from meowdoku.rules import find_conflicts, is_valid_solution
@@ -39,6 +40,7 @@ PALETTE = (
 )
 
 SOLVED_MESSAGE = "Solved!"
+IMPORTED_MESSAGE = "Read from the screenshot. Check that the board matches your game."
 
 
 class Highlight(Enum):
@@ -83,8 +85,16 @@ class GameSession:
 
     @classmethod
     def from_file(cls, path: Path) -> Self:
-        """Raises OSError or MeowdokuError for files that can't be used."""
-        return cls(read_puzzle_file(path))
+        """Open a text puzzle or a screenshot (R8.5).
+
+        Raises OSError or MeowdokuError for files that can't be used.
+        """
+        if not is_image_path(path):
+            return cls(read_puzzle_file(path))
+        imported = import_screenshot(path)
+        session = cls(imported.puzzle, imported.colors)
+        session.message = IMPORTED_MESSAGE
+        return session
 
     @property
     def is_solved(self) -> bool:
