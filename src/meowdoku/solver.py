@@ -86,6 +86,14 @@ class _Placement:
         self.used_columns.remove(col)
         self.used_regions.remove(region)
 
+    def is_still_open(self, cell: Cell) -> bool:
+        """Could a later row still put a cat in this cell?"""
+        row, col = cell
+        next_row = len(self.columns)
+        if row < next_row or col in self.used_columns:
+            return False
+        return row > next_row or abs(col - self.columns[-1]) > 1
+
 
 def _search(puzzle: Puzzle, placement: _Placement) -> Iterator[Solution]:
     row = len(placement.columns)
@@ -96,5 +104,15 @@ def _search(puzzle: Puzzle, placement: _Placement) -> Iterator[Solution]:
         region = puzzle.region_of((row, col))
         if placement.can_place(col, region):
             placement.place(col, region)
-            yield from _search(puzzle, placement)
+            if _every_region_can_still_fit(puzzle, placement):
+                yield from _search(puzzle, placement)
             placement.remove(col, region)
+
+
+def _every_region_can_still_fit(puzzle: Puzzle, placement: _Placement) -> bool:
+    """Pruning: give up early if a region without a cat has no open cell left."""
+    return all(
+        any(placement.is_still_open(cell) for cell in cells)
+        for label, cells in puzzle.region_cells.items()
+        if label not in placement.used_regions
+    )

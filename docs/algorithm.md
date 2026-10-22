@@ -50,12 +50,23 @@ In the worst case the search tries all N! column orderings, but the column,
 region, and adjacency checks prune most branches early. Hand-designed puzzles
 with N ≤ 12 are expected to solve in well under a second.
 
-## Planned optimization (only if measurements show it's needed)
+## Optimization: region dead-end pruning
 
-**Region dead-end pruning:** after placing a cat, abandon the branch if some
-unused region has no legal cell left in the remaining rows. It's cheap to
-check and catches many dead ends early. It will be added only with
-before-and-after timings, and the oracle tests must keep passing unchanged.
+After placing a cat, abandon the branch if some region without a cat has no
+open cell left. A cell is open if it's in a later row, in an unused column,
+and not touching the cat just placed. Without this check, the search only
+discovers an empty region when it reaches that region's last row.
+
+Measured on 30 random 12×12 puzzles (seeded), before → after:
+
+| | Median | Worst | Over 1 s |
+|---|---|---|---|
+| Plain backtracking | 0.241 s | 10.1 s | 6 / 30 |
+| With pruning | 0.003 s | 1.27 s | 1 / 30 |
+
+All oracle tests pass unchanged. Over 300 random 12×12 puzzles, 2 still take
+more than 1 second (worst 3.2 s). Both had no solution or several; random
+puzzles almost never have a unique solution, unlike real game puzzles.
 
 ## Separation from validation
 
