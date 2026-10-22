@@ -9,5 +9,9 @@ board-7x7.txt      one line per row, one letter per region, e.g. AABBB
 ```
 
 Any letters work in the `.txt` file; regions are matched by shape, not by
-letter. Lines starting with `#` are comments. `tests/test_image_import.py` picks up every `.png`/`.jpg`/`.jpeg`
+letter. Lines starting with `#` are comments.
+
+If the board shows cats or ✕ marks, add a `.marks` file of the same name: one
+line per row, `*` for a cat, `x` for a ✕, `.` for an empty tile. Without a
+`.marks` file, the board is expected to be empty. `tests/test_image_import.py` picks up every `.png`/`.jpg`/`.jpeg`
 here automatically. Include at least one board with cats and ✕ marks.

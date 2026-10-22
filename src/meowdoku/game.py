@@ -45,6 +45,14 @@ SOLVED_MESSAGE = "Solved!"
 IMPORTED_MESSAGE = "Read from the screenshot. Check that the board matches your game."
 
 
+def imported_message(cats: int, crosses: int) -> str:
+    """What the window says after opening a screenshot (R9.1a)."""
+    if not cats and not crosses:
+        return IMPORTED_MESSAGE
+    marks = f"{count_of(cats, 'cat')} and {count_of(crosses, '✕ mark')}"
+    return f"Read from the screenshot, with {marks}. Check that the board matches your game."
+
+
 class Highlight(Enum):
     HINT = "hint"
     PROBLEM = "problem"
@@ -97,7 +105,8 @@ class GameSession:
             return cls(read_puzzle_file(path))
         imported = import_screenshot(path)
         session = cls(imported.puzzle, imported.colors)
-        session.message = IMPORTED_MESSAGE
+        session.state = BoardState(imported.puzzle.size, imported.cats, imported.crosses)
+        session.message = imported_message(len(imported.cats), len(imported.crosses))
         return session
 
     @property

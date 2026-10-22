@@ -1,0 +1,12 @@
+# Transcribed from IMG_7117.PNG by Claude, not by the owner: please confirm.
+# Check: this grid has exactly one solution (meowdoku --count-all).
+UUUUULTTTT
+UYYYLLTMTT
+UUYLLLLTTR
+UULLBTLTTR
+LLLBBTTTTR
+LBBBTTTTRR
+LLLBBBTTTR
+LPBBBOTTTR
+LPBDDOOOTR
+LLLDOOTTTT

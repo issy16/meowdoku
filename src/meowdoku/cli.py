@@ -24,6 +24,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if is_image_path(path):
             imported = import_screenshot(path)
             print(f"Detected puzzle:\n{imported.text}\n")
+            if imported.cats or imported.crosses:
+                print(f"Detected marks (* cat, x cross):\n{imported.marks_text}\n")
             puzzle = imported.puzzle
         else:
             puzzle = read_puzzle_file(path)

@@ -157,14 +157,17 @@ about 0.01 s on 10×10–12×12 boards.
 
 ## Screenshot import
 
-`image_import.py` turns a screenshot into the text grid in four steps. Each
-step is a separate function, so tuning one doesn't disturb the others.
+`image_import.py` turns a screenshot into the text grid and the marks in five
+steps. Each step is a separate function, so tuning one doesn't disturb the
+others.
 
 The real game draws the board as a white rounded card of **rounded colored
 tiles with white gaps** between them, on a beige page. There are no grid
 lines and no region borders: regions are shown only by tile color.
 (Measured on `tests/fixtures/screenshots/IMG_7128.jpg`: 105 px tiles,
-9 px gaps, about 8 px corner radius.)
+9 px gaps, about 8 px corner radius.) A ✕ is a thick white X across most of
+a tile; a cat is a black and white cat face covering most of a tile, with
+the tile color still visible around it (`IMG_7117.PNG`).
 
 1. **Find the board (`find_board`).** Read the page color from the image
    corners. Tile pixels are those that differ by more than 40 in some color
@@ -174,53 +177,70 @@ lines and no region borders: regions are shown only by tile color.
    buttons, and ad banners make short, wide bands. The board is the largest
    band whose colored area is square. This works on full, uncropped phone
    screenshots.
-2. **Count the cells (`count_cells`).** Read pixel colors straight across
-   the board along 60 rows and 60 columns. At each position, ask whether the
-   color changes sharply within a few pixels, and take the median answer.
-   The white gaps cross every row and column, so they survive the median;
-   cats and ✕ marks cross only some, so they don't. The median spacing gives
-   N, which must agree in both directions.
-3. **Read cell colors (`cell_color`).** Sample a band 15–20% inside each
-   cell's edges, clear of the gaps, the rounded corners, and the icons in the
-   middle. Take the most common color there. This is how cats and ✕ marks are
-   ignored (R9.1a).
+2. **Count the cells (`count_cells`).** For every pixel column (and row) of
+   the board, measure what share is tile pixels. A gap between tiles is white
+   along the whole board, so its share is near zero (below 25%). A ✕ or a cat
+   face covers only part of any line through a tile, so tile lines stay well
+   covered even when every tile has a mark. The median spacing between gaps
+   gives N, which must agree in both directions.
+3. **Read cell colors (`cell_color`).** Sample a 16×16 grid over each tile
+   and skip white pixels (gaps, ✕ marks, cat faces) and black ones (cat
+   fur). The most common remaining color is the tile's color.
 4. **Group colors into regions (`group_colors`).** Join cells whose colors
    are within RGB distance 28, in chains. The real game's 10 colors are at
    least 64 apart. There must be exactly N groups, otherwise raise
    `ImageImportError` ("found 6 region colors; expected 7"). Label groups
    `A`, `B`, … in row-major order of first appearance, then pass the text
    grid to the normal parser, which validates it (R4).
+5. **Read the marks (`read_mark`).** Sample the middle of each tile (25–75%).
+   At least 12% black means a cat; otherwise at least 12% white means a ✕;
+   otherwise the tile is empty (R9.1a). On `IMG_7117.PNG` the measurements
+   are far from the 12% thresholds:
+
+   | Tile | Black | White |
+   |---|---|---|
+   | Cats (5) | 43–46% | 23–26% |
+   | ✕ (75) | 0% | 49–57% |
+   | Empty (20) | 0% | 0% |
 
 **History.** The first version (Milestone 8) guessed at a board with a dark
 frame, grid lines, and thick region borders. The real screenshot has none of
 those, so step 1 was replaced. It first took the box around *all* tile pixels,
 which needed a cropped screenshot. Banding the rows, added for
-`IMG_7114.PNG`, made full screenshots work. Steps 2–4 carried over: the white gaps act
-like grid lines for step 2. Two earlier fixes still matter:
+`IMG_7114.PNG`, made full screenshots work. `IMG_7117.PNG`, the first board
+with marks, broke two steps:
 
-- Gaps are found by *color change*, not brightness.
-- Colors are sampled near the cell *edges*, because an icon covers most of a
-  cell's middle.
+- **Step 2:** finding gaps by color change mistook the white ✕ strokes for
+  gaps. It now uses tile coverage instead.
+- **Step 3:** sampling near the tile edges hit the cat face, which covers
+  most of the tile. It now skips white and black pixels instead.
+
+Step 5 was added at the same time, when marks went from ignored to read.
 
 **Status.**
 
-- **Real screenshots:** both read correctly.
+- **Real screenshots:** all three read correctly, regions and marks.
   - `IMG_7128.jpg`: a cropped 10×10 empty board.
   - `IMG_7114.PNG`: a full 1206×2622 phone screenshot of another 10×10
     empty board, with the header, rule card, buttons, and an ad banner.
+  - `IMG_7117.PNG`: a full phone screenshot of a 10×10 game in progress,
+    with 5 cats and 75 ✕ marks.
 
-  Both expected grids were transcribed by Claude and still need the owner's
-  confirmation. Each has exactly one solution, which a misread cell would
-  very likely break. Copies of both also read correctly when shrunk to a third
+  All expected grids and marks were transcribed by Claude and still need the
+  owner's confirmation. Each grid has exactly one solution, which a misread
+  cell would very likely break. In `IMG_7117`, all 5 transcribed cats are in
+  that solution and no ✕ is on a solution cell. Copies of both also read correctly when shrunk to a third
   of their size or saved as JPEG quality 40. Each takes about 0.5 s.
 - **Synthetic screenshots:** drawn in the measured style, from 4×4 to 12×12,
-  as PNG and JPEG, with and without cats and ✕ marks, both cropped and inside
-  a full phone screen.
+  as PNG and JPEG, with and without cats and ✕ marks drawn like the real
+  ones, both cropped and inside a full phone screen. Deliberately breaking ✕
+  detection makes 22 of these tests fail.
 
 **Known limits:**
 
-- How the real game draws cats and ✕ marks hasn't been seen yet. The tests
-  use dark marks in the middle of the tile.
+- Only one real board with marks has been seen. Highlighted tiles, if the
+  game has them (a selected tile, or a conflict shown in red), haven't been
+  seen either.
 - Dark mode hasn't been seen either.
 - A square, colorful ad could be mistaken for the board if it is larger
   than the board. The real board fills the screen width, so this is unlikely.

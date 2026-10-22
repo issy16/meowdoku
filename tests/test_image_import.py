@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw  # noqa: E402
 from meowdoku.image_import import (  # noqa: E402
     COLOR_TOLERANCE,
     ImageImportError,
+    ImportedPuzzle,
     import_screenshot,
     is_image_path,
 )
@@ -89,16 +90,48 @@ def test_r9_2_reads_jpeg_screenshots(
     assert import_screenshot(save(image, tmp_path / "board.jpg", quality=80)).puzzle == canonical(puzzle)
 
 
-# R9.1a Marks are ignored
+# R9.1a Marks are read
+
+
+def random_marks(puzzle: Puzzle, seed: int) -> dict[tuple[int, int], str]:
+    rng = random.Random(seed)
+    return {cell: rng.choice(["cat", "cross"]) for cell in puzzle.cells() if rng.random() < 0.5}
+
+
+def assert_marks(imported: "ImportedPuzzle", marks: dict[tuple[int, int], str]) -> None:
+    assert imported.cats == {cell for cell, mark in marks.items() if mark == "cat"}
+    assert imported.crosses == {cell for cell, mark in marks.items() if mark == "cross"}
 
 
 @pytest.mark.parametrize("index", range(len(VARIATIONS)), ids=IDS)
-def test_r9_1a_cats_and_crosses_are_ignored(tmp_path: Path, index: int) -> None:
+def test_r9_1a_cats_and_crosses_are_read(tmp_path: Path, index: int) -> None:
     puzzle, cell, origin = VARIATIONS[index]
-    rng = random.Random(index)
-    marks = {cell_: rng.choice(["cat", "cross"]) for cell_ in puzzle.cells() if rng.random() < 0.5}
+    marks = random_marks(puzzle, index)
     image = draw_screenshot(puzzle, cell=cell, origin=origin, marks=marks)
-    assert import_screenshot(save(image, tmp_path / "board.png")).puzzle == canonical(puzzle)
+    imported = import_screenshot(save(image, tmp_path / "board.png"))
+    assert imported.puzzle == canonical(puzzle)
+    assert_marks(imported, marks)
+
+
+@pytest.mark.parametrize("index", range(0, len(VARIATIONS), 2), ids=IDS[::2])
+def test_r9_1a_marks_are_read_from_jpeg(tmp_path: Path, index: int) -> None:
+    puzzle, cell, origin = VARIATIONS[index]
+    marks = random_marks(puzzle, index)
+    image = draw_screenshot(puzzle, cell=cell, origin=origin, marks=marks)
+    imported = import_screenshot(save(image, tmp_path / "board.jpg", quality=80))
+    assert imported.puzzle == canonical(puzzle)
+    assert_marks(imported, marks)
+
+
+def test_r9_1a_empty_board_has_no_marks(tmp_path: Path) -> None:
+    imported = import_screenshot(save(draw_screenshot(EXAMPLE), tmp_path / "example.png"))
+    assert imported.cats == frozenset()
+    assert imported.crosses == frozenset()
+
+
+def test_marks_text() -> None:
+    imported = ImportedPuzzle(EXAMPLE, "", {}, frozenset({(0, 0)}), frozenset({(0, 1), (4, 4)}))
+    assert imported.marks_text == "*x...\n.....\n.....\n.....\n....x"
 
 
 # R9.2, R9.4 Errors
@@ -134,7 +167,9 @@ def test_reads_full_phone_screenshots_with_marks_as_jpeg(tmp_path: Path, index: 
     rng = random.Random(index)
     marks = {cell_: rng.choice(["cat", "cross"]) for cell_ in puzzle.cells() if rng.random() < 0.5}
     image = add_phone_ui(draw_screenshot(puzzle, cell=cell, origin=origin, marks=marks), seed=index)
-    assert import_screenshot(save(image, tmp_path / "phone.jpg", quality=80)).puzzle == canonical(puzzle)
+    imported = import_screenshot(save(image, tmp_path / "phone.jpg", quality=80))
+    assert imported.puzzle == canonical(puzzle)
+    assert_marks(imported, marks)
 
 
 def test_r9_4_two_regions_with_the_same_color(tmp_path: Path) -> None:
@@ -189,7 +224,8 @@ def test_is_image_path() -> None:
     assert not is_image_path(Path("c.txt"))
 
 
-# R9.5 Real screenshots: each image needs a .txt file beside it with the expected grid
+# R9.5 Real screenshots: each image needs a .txt file beside it with the expected
+# grid, and a .marks file if it shows cats or crosses (* cat, x cross, . empty).
 
 
 def real_screenshot_cases() -> list[Path]:
@@ -201,7 +237,17 @@ def real_screenshot_cases() -> list[Path]:
 @pytest.mark.parametrize("path", real_screenshot_cases(), ids=lambda path: path.name)
 def test_r9_5_real_screenshots(path: Path) -> None:
     expected = read_puzzle_file(path.with_suffix(".txt"))
-    assert import_screenshot(path).puzzle == canonical(expected)
+    imported = import_screenshot(path)
+    assert imported.puzzle == canonical(expected)
+    assert imported.marks_text == expected_marks(path, expected.size)
+
+
+def expected_marks(path: Path, size: int) -> str:
+    marks_path = path.with_suffix(".marks")
+    if not marks_path.exists():
+        return "\n".join("." * size for _ in range(size))
+    lines = marks_path.read_text(encoding="utf-8").splitlines()
+    return "\n".join(line.strip() for line in lines if line.strip() and not line.startswith("#"))
 
 
 # Using screenshots from the CLI (R6.5) and the GUI (R8.3, R8.5)
@@ -233,3 +279,26 @@ def test_r8_3_game_opened_from_screenshot_keeps_its_colors(tmp_path: Path) -> No
     assert session.puzzle == EXAMPLE
     assert color_distance(session.colors["A"], TEST_COLORS[0]) <= 3
     assert session.message == IMPORTED_MESSAGE
+
+
+def test_r9_1a_game_starts_from_imported_marks(tmp_path: Path) -> None:
+    from meowdoku.game import GameSession
+
+    marks = {(0, 4): "cat", (1, 0): "cross", (2, 2): "cross"}
+    session = GameSession.from_file(save(draw_screenshot(EXAMPLE, marks=marks), tmp_path / "b.png"))
+    assert session.state.cats == {(0, 4)}
+    assert session.state.crosses == {(1, 0), (2, 2)}
+    assert session.message == (
+        "Read from the screenshot, with 1 cat and 2 ✕ marks. Check that the board matches your game."
+    )
+    session.reset()
+    assert session.state.cats == frozenset()
+
+
+def test_r6_5_cli_prints_detected_marks(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from meowdoku.cli import main
+
+    marks = {(0, 4): "cat", (1, 0): "cross"}
+    main([str(save(draw_screenshot(EXAMPLE, marks=marks), tmp_path / "b.png"))])
+    out = capsys.readouterr().out
+    assert "Detected marks (* cat, x cross):\n....*\nx....\n.....\n.....\n.....\n" in out

@@ -39,7 +39,7 @@ src/meowdoku/
   state.py         BoardState: player's cats and ✕ marks
   deduce.py        deduction rules D1–D5 (see docs/algorithm.md)
   hints.py         next_hint: violations, mistakes, deductions (never reveals answers)
-  image_import.py  screenshot -> text grid + region colors (Pillow)
+  image_import.py  screenshot -> text grid, region colors, cats and ✕ marks (Pillow)
   colors.py        plain color names for regions ("the pink region")
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
@@ -52,7 +52,7 @@ Allowed imports (everything may import `puzzle`):
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
 - `game` -> `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
 - `hints` -> `deduce`, `rules`, `solver`, `state`
-- `image_import` -> `parser`
+- `image_import` -> `parser`, `state`
 - `deduce`, `rules` -> `state`
 
 - `rules.py` and `solver.py` must never import each other. The validator is an

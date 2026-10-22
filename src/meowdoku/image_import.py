@@ -1,12 +1,13 @@
-"""Read a puzzle from a screenshot of a Meowdoku board (R9, docs/algorithm.md).
+"""Read a puzzle, and any cats and ✕ marks, from a Meowdoku screenshot (R9).
 
-Pipeline: find the board's dark outer frame, count the cells from the grid
-lines, read each cell's most common color, and group the colors into regions.
-Cats and ✕ marks cover only part of a cell, so they are ignored (R9.1a).
+The game draws the board as rounded colored tiles with white gaps, on a white
+card on a plain page. A ✕ is a thick white X on a tile; a cat is a black and
+white cat face covering most of a tile (see tests/fixtures/screenshots/).
+
+Pipeline (docs/algorithm.md): find the tiles, count them, read each tile's
+color, group colors into regions, and read the mark on each tile.
 
 Pillow is optional (the `[image]` extra) and imported only when needed (R9.2).
-The constants below are tuned on synthetic images; retune them on the real
-screenshots in tests/fixtures/screenshots/ (R9.5).
 """
 
 from collections import Counter
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING
 
 from meowdoku.parser import parse_puzzle
 from meowdoku.puzzle import MAX_SIZE, Cell, MeowdokuError, Puzzle
+from meowdoku.state import Mark
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -31,10 +33,14 @@ TILE_CONTRAST = 40  # channel difference that separates a tile from white or the
 SQUARE_TOLERANCE = 0.1  # allowed width/height mismatch of the board
 MIN_ROW_COVERAGE = 0.3  # share of a row that is tiles, for a row through the board
 MAX_ROW_GAP = 0.02  # gaps up to this share of the image width join rows into one band
-EDGE_STRENGTH = 20  # RGB distance that counts as a sharp color change between tiles
-EDGE_SAMPLES = 60  # rows (or columns) sampled when looking for the gaps between tiles
-CELL_BAND = (0.15, 0.2)  # sample this far inside each cell edge: clear of gaps, corners, and icons
-SAMPLES_PER_SIDE = 12  # color samples along each side of a cell
+GAP_COVERAGE = 0.25  # a pixel column (or row) this little covered by tiles is a gap
+CELL_INSET = 0.08  # skip this share of each cell edge: the white gap around the tile
+CELL_SAMPLES = 16  # color samples per cell, per direction
+WHITE_MIN = 225  # every channel above this: white (gaps, ✕ marks, cat faces)
+BLACK_MAX = 80  # every channel below this: black (cat fur)
+MARK_AREA = (0.25, 0.75)  # the middle of a tile, where marks are read
+CAT_SHARE = 0.12  # this much black in the middle of a tile means a cat
+CROSS_SHARE = 0.12  # this much white in the middle of a tile means a ✕
 COLOR_BIN = 12  # colors closer than this per channel count as the same color
 COLOR_TOLERANCE = 28  # max RGB distance between cells of one region
 
@@ -70,6 +76,19 @@ class ImportedPuzzle:
     text: str
     colors: dict[str, str]
     """Each region label's color as '#rrggbb' (R8.3)."""
+    cats: frozenset[Cell] = frozenset()
+    crosses: frozenset[Cell] = frozenset()
+
+    @property
+    def marks_text(self) -> str:
+        """The marks read, one line per row: `*` cat, `x` ✕, `.` empty."""
+        return "\n".join(
+            "".join(
+                "*" if (row, col) in self.cats else "x" if (row, col) in self.crosses else "."
+                for col in range(self.puzzle.size)
+            )
+            for row in range(self.puzzle.size)
+        )
 
 
 def is_image_path(path: Path) -> bool:
@@ -77,21 +96,25 @@ def is_image_path(path: Path) -> bool:
 
 
 def import_screenshot(path: Path) -> ImportedPuzzle:
-    """Read a screenshot into a validated puzzle plus region colors (R9.1).
+    """Read a screenshot into a validated puzzle, its colors, and its marks (R9.1).
 
     Raises OSError if the file can't be read, ImageImportError if no board is
     found, and PuzzleValidationError if the detected grid isn't a valid puzzle.
     """
     image = _open_image(path)
-    board = find_board(image)
-    size = count_cells(image, board)
-    cell_colors = [
-        [cell_color(image, cell_box(board, size, (row, col))) for col in range(size)]
-        for row in range(size)
-    ]
+    tiles = tile_mask(image)
+    board = find_board(tiles)
+    size = count_cells(tiles, board)
+    boxes = {(row, col): cell_box(board, size, (row, col)) for row in range(size) for col in range(size)}
+
+    cell_colors = [[cell_color(image, boxes[(row, col)]) for col in range(size)] for row in range(size)]
     labels, colors = group_colors(cell_colors, size)
     text = "\n".join("".join(row) for row in labels)
-    return ImportedPuzzle(parse_puzzle(text), text, colors)
+
+    marks = {cell: read_mark(image, box) for cell, box in boxes.items()}
+    cats = frozenset(cell for cell, mark in marks.items() if mark is Mark.CAT)
+    crosses = frozenset(cell for cell, mark in marks.items() if mark is Mark.CROSS)
+    return ImportedPuzzle(parse_puzzle(text), text, colors, cats, crosses)
 
 
 def _open_image(path: Path) -> "Image":
@@ -109,21 +132,25 @@ def _open_image(path: Path) -> "Image":
 # Step 1: find the board
 
 
-def find_board(image: "Image") -> Box:
-    """Find the grid of colored tiles, even in a full phone screenshot.
+def tile_mask(image: "Image") -> "Image":
+    """A mask of tile pixels: far from both white and the page color.
 
-    In Meowdoku the board is a white card of rounded, colored tiles with white
-    gaps between them, on a plain page background. Tile pixels are the ones
-    far from both white and the page color. Rows that are mostly tile pixels
-    form horizontal bands (small gaps between tile rows are bridged). Headers,
-    icons, buttons, and ad banners make short, wide bands; the board is the
-    largest band whose colored area is square.
+    White gaps, white ✕ marks, and the white parts of cat faces are not tiles.
     """
     background = _page_color(image)
-    tiles = _darker(_far_from(image, WHITE), _far_from(image, background))
+    return _darker(_far_from(image, WHITE), _far_from(image, background))
+
+
+def find_board(tiles: "Image") -> Box:
+    """Find the grid of tiles, even in a full phone screenshot.
+
+    Rows that are mostly tile pixels form horizontal bands (small gaps between
+    tile rows are bridged). Headers, icons, buttons, and ad banners make short,
+    wide bands; the board is the largest band whose tile area is square.
+    """
     if tiles.getbbox() is None:
         raise ImageImportError("couldn't find the board: no colored tiles were found")
-    width, height = image.size
+    width, height = tiles.size
     coverage = tiles.resize((1, height), BOX_FILTER).tobytes()
     tile_rows = [y for y in range(height) if coverage[y] >= MIN_ROW_COVERAGE * 255]
     bands = _consecutive_groups(tile_rows, max(2, int(MAX_ROW_GAP * width)))
@@ -173,14 +200,11 @@ def _darker(first: "Image", second: "Image") -> "Image":
 # Step 2: count the cells
 
 
-def count_cells(image: "Image", board: Box) -> int:
-    """Board size N from the spacing of the grid lines in both directions."""
-    pixels = image.load()
-    xs = range(board.left, board.right)
-    ys = range(board.top, board.bottom)
-    across_lines = [[pixels[x, y] for x in xs] for y in _sample_positions(board.top, board.bottom)]
-    down_lines = [[pixels[x, y] for y in ys] for x in _sample_positions(board.left, board.right)]
-    across, down = _cells_along(across_lines), _cells_along(down_lines)
+def count_cells(tiles: "Image", board: Box) -> int:
+    """Board size N from the spacing of the white gaps in both directions."""
+    inside = tiles.crop((board.left, board.top, board.right, board.bottom))
+    across = _cells_along(inside.resize((board.width, 1), BOX_FILTER).tobytes())
+    down = _cells_along(inside.resize((1, board.height), BOX_FILTER).tobytes())
     if across != down:
         raise ImageImportError(f"found a grid {across} cells wide and {down} cells tall; the board must be square")
     if not 1 <= across <= MAX_SIZE:
@@ -188,42 +212,21 @@ def count_cells(image: "Image", board: Box) -> int:
     return across
 
 
-def _sample_positions(start: int, end: int) -> list[int]:
-    """Up to EDGE_SAMPLES evenly spread pixel positions between start and end."""
-    count = min(EDGE_SAMPLES, end - start)
-    return [start + i * (end - start) // count for i in range(count)]
+def _cells_along(coverage: bytes) -> int:
+    """Count cells along one direction from how much of each pixel line is tiles.
 
-
-def _cells_along(lines: list[list[RGB]]) -> int:
-    """Count cells along one direction from where the color changes sharply.
-
-    `lines` are pixel colors read straight across the board. Grid lines cross
-    every one of them, while cats and ✕ marks cross only some, so the median
-    over lines keeps grid lines and drops marks. A change counts if it is
-    within a few pixels, because a thick region border and the thin grid line
-    it continues don't change color at exactly the same pixel.
+    A gap between tiles is white along the whole board, so its coverage is
+    near zero. A ✕ or a cat face covers only part of any line through a tile,
+    so tiles stay well covered even when every tile has a mark.
     """
-    length = len(lines[0])
-    gap = max(3, length // (3 * MAX_SIZE))
-    nearby_changes = [_nearby_changes(line, gap // 2) for line in lines]
-    strength = [median(changes[i] for changes in nearby_changes) for i in range(length)]
-    peaks = [i for i, value in enumerate(strength) if value >= EDGE_STRENGTH]
-    centers = [
-        center
-        for group in _consecutive_groups(peaks, gap)
-        if gap <= (center := sum(group) / len(group)) <= length - gap
-    ]
+    length = len(coverage)
+    gaps = [index for index, value in enumerate(coverage) if value < GAP_COVERAGE * 255]
+    centers = [sum(group) / len(group) for group in _consecutive_groups(gaps, 2)]
     if not centers:
         return 1
     boundaries = [0.0, *centers, float(length)]
     cell_length = median(b - a for a, b in zip(boundaries, boundaries[1:]))
     return round(length / cell_length)
-
-
-def _nearby_changes(line: list[RGB], radius: int) -> list[float]:
-    """For each pixel, the largest color change between neighbors within `radius`."""
-    changes = [0.0] + [_distance(a, b) for a, b in zip(line, line[1:])]
-    return [max(changes[max(0, i - radius) : i + radius + 1]) for i in range(len(line))]
 
 
 def _consecutive_groups(indexes: list[int], gap: int) -> list[list[int]]:
@@ -237,7 +240,7 @@ def _consecutive_groups(indexes: list[int], gap: int) -> list[list[int]]:
     return groups
 
 
-# Step 3: read each cell's color
+# Step 3: read each tile's color
 
 
 def cell_box(board: Box, size: int, cell: Cell) -> Box:
@@ -250,25 +253,44 @@ def cell_box(board: Box, size: int, cell: Cell) -> Box:
     )
 
 
-def cell_color(image: "Image", box: Box) -> RGB:
-    """The most common color in a band just inside the cell's edges.
-
-    Cat and ✕ icons sit in the middle of the cell, so sampling near the edges
-    (but clear of the grid lines) reads the region color (R9.1a).
-    """
+def _samples(image: "Image", box: Box, start: float, end: float, count: int) -> list[RGB]:
+    """Colors on an evenly spaced count×count grid between two shares of the box."""
     pixels = image.load()
-    samples: list[RGB] = []
-    for inset in CELL_BAND:
-        for i in range(SAMPLES_PER_SIDE):
-            along = inset + (1 - 2 * inset) * i / (SAMPLES_PER_SIDE - 1)
-            for fx, fy in ((along, inset), (along, 1 - inset), (inset, along), (1 - inset, along)):
-                x = min(box.right - 1, box.left + int(fx * box.width))
-                y = min(box.bottom - 1, box.top + int(fy * box.height))
-                samples.append(pixels[x, y][:3])
+    colors = []
+    for i in range(count):
+        for j in range(count):
+            fx = start + (end - start) * i / (count - 1)
+            fy = start + (end - start) * j / (count - 1)
+            x = min(box.right - 1, box.left + int(fx * box.width))
+            y = min(box.bottom - 1, box.top + int(fy * box.height))
+            colors.append(pixels[x, y][:3])
+    return colors
+
+
+def cell_color(image: "Image", box: Box) -> RGB:
+    """The tile's color: the most common color that isn't white or black.
+
+    White (gaps, ✕ marks, cat faces) and black (cat fur) are skipped, so the
+    tile color still wins on tiles with marks.
+    """
+    samples = [
+        color
+        for color in _samples(image, box, CELL_INSET, 1 - CELL_INSET, CELL_SAMPLES)
+        if not _is_white(color) and not _is_black(color)
+    ]
+    if not samples:
+        raise ImageImportError("couldn't read a tile's color: it is all white or black")
     bins = Counter(_color_bin(color) for color in samples)
     most_common_bin = bins.most_common(1)[0][0]
-    members = [color for color in samples if _color_bin(color) == most_common_bin]
-    return _average(members)
+    return _average([color for color in samples if _color_bin(color) == most_common_bin])
+
+
+def _is_white(color: RGB) -> bool:
+    return min(color) > WHITE_MIN
+
+
+def _is_black(color: RGB) -> bool:
+    return max(color) < BLACK_MAX
 
 
 def _color_bin(color: RGB) -> RGB:
@@ -333,3 +355,22 @@ def _distance(a: RGB, b: RGB) -> float:
 
 def _to_hex(color: RGB) -> str:
     return "#{:02x}{:02x}{:02x}".format(*color)
+
+
+# Step 5: read the marks (R9.1a)
+
+
+def read_mark(image: "Image", box: Box) -> Mark | None:
+    """Read the mark in the middle of a tile.
+
+    Black there means a cat (its fur); white there means a ✕. A tile with too
+    little of either is left empty rather than guessed.
+    """
+    samples = _samples(image, box, *MARK_AREA, CELL_SAMPLES)
+    black = sum(_is_black(color) for color in samples) / len(samples)
+    white = sum(_is_white(color) for color in samples) / len(samples)
+    if black >= CAT_SHARE:
+        return Mark.CAT
+    if white >= CROSS_SHARE:
+        return Mark.CROSS
+    return None

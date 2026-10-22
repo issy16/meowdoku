@@ -21,7 +21,9 @@ TEST_COLORS = (
 )
 PAGE_COLOR = "#f6f2ef"
 CARD_COLOR = "#ffffff"
-MARK_COLOR = "#2b2b2b"
+CROSS_COLOR = "#ffffff"
+CAT_FUR = "#262626"
+CAT_FACE = "#ffffff"
 GAP_SHARE = 0.08  # gap between tiles, as a share of the cell pitch
 RADIUS_SHARE = 0.08  # tile corner radius, as a share of the tile
 
@@ -66,18 +68,29 @@ def draw_screenshot(
 
 
 def _draw_cat(draw: ImageDraw.ImageDraw, x: int, y: int, tile: int) -> None:
+    """A black and white cat face over most of the tile, as in IMG_7117.PNG."""
+
     def at(fx: float, fy: float) -> tuple[float, float]:
         return (x + fx * tile, y + fy * tile)
 
-    draw.polygon([at(0.24, 0.50), at(0.27, 0.16), at(0.47, 0.34)], fill=MARK_COLOR)
-    draw.polygon([at(0.76, 0.50), at(0.73, 0.16), at(0.53, 0.34)], fill=MARK_COLOR)
-    draw.ellipse([at(0.22, 0.28), at(0.78, 0.82)], fill=MARK_COLOR)
+    draw.polygon([at(0.14, 0.50), at(0.20, 0.06), at(0.44, 0.24)], fill=CAT_FUR)
+    draw.polygon([at(0.86, 0.50), at(0.80, 0.06), at(0.56, 0.24)], fill=CAT_FUR)
+    draw.ellipse([at(0.10, 0.16), at(0.90, 0.92)], fill=CAT_FUR)
+    draw.ellipse([at(0.26, 0.50), at(0.74, 0.90)], fill=CAT_FACE)
+    for cx in (0.36, 0.64):
+        draw.ellipse([at(cx - 0.08, 0.40), at(cx + 0.08, 0.56)], fill=CAT_FACE)
+        draw.ellipse([at(cx - 0.04, 0.44), at(cx + 0.04, 0.52)], fill=CAT_FUR)
 
 
 def _draw_cross(draw: ImageDraw.ImageDraw, x: int, y: int, tile: int) -> None:
-    a, b = 0.32 * tile, 0.68 * tile
-    draw.line((x + a, y + a, x + b, y + b), fill=MARK_COLOR, width=3)
-    draw.line((x + a, y + b, x + b, y + a), fill=MARK_COLOR, width=3)
+    """A thick white X with rounded ends, as in IMG_7117.PNG."""
+    width = max(2, round(0.16 * tile))
+    a, b = 0.24 * tile, 0.76 * tile
+    for x0, y0, x1, y1 in ((a, a, b, b), (a, b, b, a)):
+        draw.line((x + x0, y + y0, x + x1, y + y1), fill=CROSS_COLOR, width=width)
+        for px, py in ((x0, y0), (x1, y1)):
+            r = width / 2
+            draw.ellipse((x + px - r, y + py - r, x + px + r, y + py + r), fill=CROSS_COLOR)
 
 
 def save(image: Image.Image, path: Path, quality: int = 85) -> Path:

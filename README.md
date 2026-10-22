@@ -6,8 +6,8 @@ and backtracking search. It reports whether a puzzle has **no solution**,
 
 Planned features:
 
-- **Screenshot import:** load a screenshot of a Meowdoku board. Any cats or
-  ✕ marks in it are ignored, so you start from an empty board.
+- **Screenshot import:** load a screenshot of a Meowdoku board, empty or in
+  progress. Cats and ✕ marks are read too, so you continue where you left off.
 - **Colored board UI:** play on a simple colored grid like the Meowdoku app.
 - **Next available hint:** get the next logical step from your current
   progress, with a plain-English reason. Hints never reveal answers or
@@ -81,7 +81,7 @@ meowdoku my-screenshot.png
 
 PNG and JPEG screenshots of a Meowdoku board work in place of a text file:
 a full phone screenshot or one cropped to the board. The command prints the grid it detected, so you can
-check it, then solves. Cats and ✕ marks in the screenshot are ignored. This
+check it, plus any cats (`*`) and ✕ marks (`x`) it read, then solves. This
 needs Pillow: `python -m pip install -e ".[image]"`.
 
 ## Playing in a window
@@ -91,7 +91,8 @@ python -m meowdoku.gui tests/fixtures/example_5x5.txt
 ```
 
 Without a file, the window opens the example puzzle. **Open…** loads a puzzle
-file or a screenshot. Screenshots keep the game's own region colors.
+file or a screenshot. Screenshots keep the game's own region colors, and the
+board starts with the cats and ✕ marks from the screenshot.
 
 - Click a cell to cycle it: empty → ✕ → cat → empty.
 - **Hint** highlights the cells behind the next logical step (orange) and

@@ -73,7 +73,8 @@ reported together in `.problems`.
   2 for invalid input, with the error message on stderr and no traceback.
 - **R6.4** Coordinates shown to users are 1-indexed.
 - **R6.5** The CLI also accepts a `.png` or `.jpg` screenshot (R9). It prints
-  the detected text grid before the solve result so the user can review it.
+  the detected text grid, and any cats and ✕ marks it read, before the solve
+  result so the user can review them.
 
 ## R7 Board state and hints
 
@@ -128,9 +129,13 @@ reported together in `.problems`.
 ## R9 Screenshot import
 
 - **R9.1** `import_screenshot(path)` reads a screenshot of a Meowdoku board
-  and returns the text grid (R3) plus each region's RGB color.
-- **R9.1a** Screenshots may show a game in progress. Any cats or ✕ marks are
-  ignored, and the puzzle is imported as an empty board.
+  and returns the text grid (R3), each region's RGB color, and the cats and
+  ✕ marks on the board.
+- **R9.1a** Screenshots may show a game in progress. Cats and ✕ marks are
+  read, and the GUI starts from them instead of an empty board; Reset still
+  clears them. A tile whose mark is unclear is left empty rather than
+  guessed. The GUI says how many cats and ✕ marks it read, so the player can
+  check them. (Changed at the owner's request; marks were ignored before.)
 - **R9.2** It supports PNG and JPEG through Pillow, installed as the optional
   `[image]` extra. Every other feature works without Pillow. If Pillow is
   missing, import raises a `MeowdokuError` that includes the install command.
@@ -157,7 +162,6 @@ reported together in `.problems`.
 
 ## Out of scope (for now)
 
-- Importing the player's cats or ✕ marks from screenshots (they are ignored)
 - Photos of screens, rotated or skewed images
 - Undo/redo, timers, and saving progress
 - Web or mobile interfaces
