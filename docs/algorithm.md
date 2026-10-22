@@ -160,52 +160,61 @@ about 0.01 s on 10×10–12×12 boards.
 `image_import.py` turns a screenshot into the text grid in four steps. Each
 step is a separate function, so tuning one doesn't disturb the others.
 
-1. **Find the board (`find_board`).** Look for rows that hold one long,
-   solid run of dark pixels, and pair them into the largest square whose left
-   and right sides are dark too. That is the board's outer frame. Then step
-   inward past the frame's thickness, measuring along several off-center
-   lines so a grid line doesn't fool the measurement.
+The real game draws the board as a white rounded card of **rounded colored
+tiles with white gaps** between them, on a beige page. There are no grid
+lines and no region borders: regions are shown only by tile color.
+(Measured on `tests/fixtures/screenshots/IMG_7128.jpg`: 105 px tiles,
+9 px gaps, about 8 px corner radius.)
+
+1. **Find the board (`find_board`).** Read the page color from the image
+   corners. Tile pixels are those that differ by more than 40 in some color
+   channel from both white and the page color. The board is the box around all
+   tile pixels, and it must be square.
 2. **Count the cells (`count_cells`).** Read pixel colors straight across
    the board along 60 rows and 60 columns. At each position, ask whether the
    color changes sharply within a few pixels, and take the median answer.
-   Grid lines cross every row and column, so they survive the median; cats
-   and ✕ marks cross only some, so they don't. The median spacing between
-   lines gives N, which must agree in both directions.
-3. **Read cell colors (`cell_color`).** Sample a band just inside each cell's
-   edges (12–17% in), clear of the grid lines and of icons, which sit in the
-   middle of the cell. Take the most common color there. This is how cats and
-   ✕ marks are ignored (R9.1a).
+   The white gaps cross every row and column, so they survive the median;
+   cats and ✕ marks cross only some, so they don't. The median spacing gives
+   N, which must agree in both directions.
+3. **Read cell colors (`cell_color`).** Sample a band 15–20% inside each
+   cell's edges, clear of the gaps, the rounded corners, and the icons in the
+   middle. Take the most common color there. This is how cats and ✕ marks are
+   ignored (R9.1a).
 4. **Group colors into regions (`group_colors`).** Join cells whose colors
-   are within RGB distance 28, in chains. There must be exactly N groups,
-   otherwise raise `ImageImportError` ("found 6 region colors; expected 7").
-   Label groups `A`, `B`, … in row-major order of first appearance, then
-   pass the text grid to the normal parser, which validates it (R4).
+   are within RGB distance 28, in chains. The real game's 10 colors are at
+   least 64 apart. There must be exactly N groups, otherwise raise
+   `ImageImportError` ("found 6 region colors; expected 7"). Label groups
+   `A`, `B`, … in row-major order of first appearance, then pass the text
+   grid to the normal parser, which validates it (R4).
 
-**Changes from the original plan, found by the synthetic tests:**
+**History.** The first version (Milestone 8) guessed at a board with a dark
+frame, grid lines, and thick region borders. The real screenshot has none of
+those, so step 1 was replaced. Steps 2–4 carried over: the white gaps act
+like grid lines for step 2. Two earlier fixes still matter:
 
-- Grid lines are found by *color change*, not brightness: thin gray lines
-  can be as bright as pastel region colors.
-- Changes count if *nearby*, because a thick region border and the thin grid
-  line it continues change color a few pixels apart.
-- Colors are sampled near the cell *edges*, not over the whole cell: a cat
-  icon covers most of a cell's middle.
+- Gaps are found by *color change*, not brightness.
+- Colors are sampled near the cell *edges*, because an icon covers most of a
+  cell's middle.
 
-**Status: tuned on synthetic screenshots only.** The tests draw boards
-from 4×4 to 12×12, with:
+**Status.**
 
-- a dark header bar and text-like blocks around the board
-- white and light-gray regions
-- JPEG compression
-- random cats and ✕ marks
+- **Real screenshots:** one, `IMG_7128.jpg`, a cropped 10×10 empty board,
+  read correctly. Its expected grid was transcribed by Claude and still needs
+  the owner's confirmation. That grid does have exactly one solution, which a
+  misread cell would very likely break. Copies of it also read correctly when
+  shrunk to a quarter of its size, saved as JPEG quality 40, or padded with
+  extra page margin. It takes about 0.5 s.
+- **Synthetic screenshots:** drawn in the measured style, from 4×4 to 12×12,
+  as PNG and JPEG, with and without cats and ✕ marks.
 
-The constants at the top of `image_import.py` still need checking against
-real screenshots in `tests/fixtures/screenshots/` (R9.5). A phone-sized
-screenshot (1170×2094) imports in about 0.5 s.
+**Known limits:**
 
-**Known limits:** the board must have a dark outer border on a lighter
-background, and regions must have clearly different colors. Dark-mode
-screenshots, or games without a dark board border, will need changes to
-step 1.
+- The screenshot should be cropped to the board. Other colored things on
+  the page, such as buttons or a header, make the colored area non-square,
+  and import stops with "crop the screenshot closer to the board".
+- How the real game draws cats and ✕ marks hasn't been seen yet. The tests
+  use dark marks in the middle of the tile.
+- Dark mode hasn't been seen either.
 
 ## Alternatives considered
 

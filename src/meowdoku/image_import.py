@@ -24,14 +24,12 @@ if TYPE_CHECKING:
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})
 INSTALL_HINT = 'python -m pip install -e ".[image]"'
 
-DARK_LUMINANCE = 100  # pixels darker than this can be part of the board frame
-MIN_FRAME_FRACTION = 0.25  # the frame is at least this share of the image width
-FRAME_SOLIDITY = 0.9  # share of a frame edge that must be dark
+WHITE = (255, 255, 255)
+TILE_CONTRAST = 40  # channel difference that separates a tile from white or the page
 SQUARE_TOLERANCE = 0.1  # allowed width/height mismatch of the board
-EDGE_STRENGTH = 20  # RGB distance that counts as a sharp color change at a grid line
-EDGE_SAMPLES = 60  # rows (or columns) sampled when looking for grid lines
-SCAN_FRACTIONS = (0.29, 0.41, 0.53, 0.67, 0.79)  # off-grid places to measure the border
-CELL_BAND = (0.12, 0.17)  # sample this far inside each cell edge: clear of lines and icons
+EDGE_STRENGTH = 20  # RGB distance that counts as a sharp color change between tiles
+EDGE_SAMPLES = 60  # rows (or columns) sampled when looking for the gaps between tiles
+CELL_BAND = (0.15, 0.2)  # sample this far inside each cell edge: clear of gaps, corners, and icons
 SAMPLES_PER_SIDE = 12  # color samples along each side of a cell
 COLOR_BIN = 12  # colors closer than this per channel count as the same color
 COLOR_TOLERANCE = 28  # max RGB distance between cells of one region
@@ -81,8 +79,7 @@ def import_screenshot(path: Path) -> ImportedPuzzle:
     found, and PuzzleValidationError if the detected grid isn't a valid puzzle.
     """
     image = _open_image(path)
-    gray = image.convert("L")
-    board = find_board(gray)
+    board = find_board(image)
     size = count_cells(image, board)
     cell_colors = [
         [cell_color(image, cell_box(board, size, (row, col))) for col in range(size)]
@@ -105,102 +102,53 @@ def _open_image(path: Path) -> "Image":
         raise ImageImportError(f"{path.name} is not a readable PNG or JPEG image") from None
 
 
-# Step 1: find the board's outer frame
+# Step 1: find the board
 
 
-def find_board(gray: "Image") -> Box:
-    """Find the largest square framed by dark lines, and return its inside."""
-    lines = _horizontal_frame_lines(gray)
-    frames = [
-        frame
-        for top_index, top in enumerate(lines)
-        for bottom in lines[top_index + 1 :]
-        if (frame := _frame_between(gray, top, bottom)) is not None
-    ]
-    if not frames:
-        raise ImageImportError("couldn't find the board: no square grid with a dark border was found")
-    outer = max(frames, key=lambda box: box.width * box.height)
-    return _inside_of_frame(gray, outer)
+def find_board(image: "Image") -> Box:
+    """Find the grid of colored tiles.
 
-
-@dataclass(frozen=True)
-class _Line:
-    """A horizontal dark line: its first and last pixel rows and its x extent."""
-
-    first_row: int
-    last_row: int
-    left: int
-    right: int
-
-
-def _horizontal_frame_lines(gray: "Image") -> list[_Line]:
-    """Groups of consecutive rows that each hold one long, solid dark run."""
-    width, height = gray.size
-    dark = gray.point(lambda value: 255 if value < DARK_LUMINANCE else 0)
-    lines: list[_Line] = []
-    for y in range(height):
-        row = dark.crop((0, y, width, y + 1))
-        extent = row.getbbox()
-        if extent is None:
-            continue
-        left, _, right, _ = extent
-        dark_count = row.histogram()[255]
-        if right - left < MIN_FRAME_FRACTION * width or dark_count < FRAME_SOLIDITY * (right - left):
-            continue
-        previous = lines[-1] if lines else None
-        if previous and previous.last_row == y - 1 and _close(previous.left, left) and _close(previous.right, right):
-            lines[-1] = _Line(previous.first_row, y, previous.left, previous.right)
-        else:
-            lines.append(_Line(y, y, left, right))
-    return lines
-
-
-def _frame_between(gray: "Image", top: _Line, bottom: _Line) -> Box | None:
-    """The box framed by two horizontal lines, if it's square and has dark sides."""
-    if not (_close(top.left, bottom.left) and _close(top.right, bottom.right)):
-        return None
-    box = Box(top.left, top.first_row, top.right, bottom.last_row + 1)
-    if abs(box.width - box.height) > SQUARE_TOLERANCE * box.width:
-        return None
-    for x in (box.left, box.right - 1):
-        side = gray.crop((x, box.top, x + 1, box.bottom))
-        dark_share = sum(1 for value in side.tobytes() if value < DARK_LUMINANCE) / box.height
-        if dark_share < FRAME_SOLIDITY:
-            return None
-    return box
-
-
-def _inside_of_frame(gray: "Image", frame: Box) -> Box:
-    """Step inward from each side of the frame until past the dark border.
-
-    Several scan lines are used, placed off the middle so they don't run
-    along a grid line, and the thinnest border reading wins.
+    In Meowdoku the board is a white card of rounded, colored tiles with white
+    gaps between them, on a plain page background. Tile pixels are the ones
+    far from both white and the page color; the board is the box around them.
     """
-    pixels = gray.load()
-
-    def border_thickness(start: tuple[int, int], step: tuple[int, int], limit: int) -> int:
-        x, y = start
-        dx, dy = step
-        thickness = 0
-        while thickness < limit and pixels[x + dx * thickness, y + dy * thickness] < DARK_LUMINANCE:
-            thickness += 1
-        return thickness
-
-    def thinnest(starts: list[tuple[int, int]], step: tuple[int, int], limit: int) -> int:
-        return min(border_thickness(start, step, limit) for start in starts)
-
-    ys = [frame.top + int(f * frame.height) for f in SCAN_FRACTIONS]
-    xs = [frame.left + int(f * frame.width) for f in SCAN_FRACTIONS]
-    half_width, half_height = frame.width // 2, frame.height // 2
-    left = frame.left + thinnest([(frame.left, y) for y in ys], (1, 0), half_width)
-    right = frame.right - thinnest([(frame.right - 1, y) for y in ys], (-1, 0), half_width)
-    top = frame.top + thinnest([(x, frame.top) for x in xs], (0, 1), half_height)
-    bottom = frame.bottom - thinnest([(x, frame.bottom - 1) for x in xs], (0, -1), half_height)
-    return Box(left, top, right, bottom)
+    background = _page_color(image)
+    tiles = _darker(_far_from(image, WHITE), _far_from(image, background))
+    extent = tiles.getbbox()
+    if extent is None:
+        raise ImageImportError("couldn't find the board: no colored tiles were found")
+    board = Box(*extent)
+    if abs(board.width - board.height) > SQUARE_TOLERANCE * max(board.width, board.height):
+        raise ImageImportError(
+            f"couldn't find the board: the colored area is {board.width}x{board.height} pixels, "
+            "not square; crop the screenshot closer to the board"
+        )
+    return board
 
 
-def _close(a: int, b: int, tolerance: int = 3) -> bool:
-    return abs(a - b) <= tolerance
+def _page_color(image: "Image") -> RGB:
+    """The page background: the most common color among the image's corners."""
+    width, height = image.size
+    pixels = image.load()
+    corners = [pixels[x, y][:3] for x in (0, width - 1) for y in (0, height - 1)]
+    return Counter(corners).most_common(1)[0][0]
+
+
+def _far_from(image: "Image", color: RGB) -> "Image":
+    """A mask that is white where some channel differs from `color` by more than TILE_CONTRAST."""
+    from PIL import Image, ImageChops
+
+    difference = ImageChops.difference(image, Image.new("RGB", image.size, color))
+    red, green, blue = difference.split()
+    largest = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+    return largest.point(lambda value: 255 if value > TILE_CONTRAST else 0)
+
+
+def _darker(first: "Image", second: "Image") -> "Image":
+    """Pixelwise AND of two masks."""
+    from PIL import ImageChops
+
+    return ImageChops.darker(first, second)
 
 
 # Step 2: count the cells

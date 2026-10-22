@@ -9,7 +9,7 @@ import pytest
 
 pytest.importorskip("PIL")
 
-from PIL import Image  # noqa: E402
+from PIL import Image, ImageDraw  # noqa: E402
 
 from meowdoku.image_import import (  # noqa: E402
     COLOR_TOLERANCE,
@@ -17,7 +17,8 @@ from meowdoku.image_import import (  # noqa: E402
     import_screenshot,
     is_image_path,
 )
-from meowdoku.puzzle import MeowdokuError, Puzzle, PuzzleValidationError  # noqa: E402
+from meowdoku.parser import read_puzzle_file  # noqa: E402
+from meowdoku.puzzle import MeowdokuError, Puzzle  # noqa: E402
 
 from helpers import LABELS, random_puzzle  # noqa: E402
 from screenshot_factory import TEST_COLORS, draw_screenshot, hex_to_rgb, save  # noqa: E402
@@ -56,48 +57,47 @@ def test_r9_1_reads_example_board_and_colors(tmp_path: Path) -> None:
 
 RNG = random.Random(20261024)
 VARIATIONS = [
-    (random_puzzle(RNG, size), cell, border, origin)
-    for size, cell, border, origin in [
-        (4, 90, 6, (60, 220)),
-        (5, 72, 4, (30, 140)),
-        (6, 64, 5, (48, 300)),
-        (7, 56, 4, (20, 160)),
-        (8, 50, 3, (40, 200)),
-        (9, 44, 4, (36, 180)),
-        (10, 40, 3, (24, 240)),
-        (11, 36, 3, (30, 150)),
-        (12, 32, 3, (40, 200)),
+    (random_puzzle(RNG, size), cell, origin)
+    for size, cell, origin in [
+        (4, 114, (60, 40)),
+        (5, 90, (30, 70)),
+        (6, 72, (48, 24)),
+        (7, 64, (20, 60)),
+        (8, 56, (40, 30)),
+        (9, 48, (36, 50)),
+        (10, 114, (37, 53)),  # the real screenshot's scale
+        (11, 40, (30, 40)),
+        (12, 34, (40, 36)),
     ]
 ]
+IDS = [f"{puzzle.size}x{puzzle.size}" for puzzle, _, _ in VARIATIONS]
 
 
-@pytest.mark.parametrize(
-    ("puzzle", "cell", "border", "origin"), VARIATIONS, ids=lambda v: str(v.size) if isinstance(v, Puzzle) else None
-)
+@pytest.mark.parametrize(("puzzle", "cell", "origin"), VARIATIONS, ids=IDS)
 def test_r9_3_reads_boards_of_many_sizes(
-    tmp_path: Path, puzzle: Puzzle, cell: int, border: int, origin: tuple[int, int]
+    tmp_path: Path, puzzle: Puzzle, cell: int, origin: tuple[int, int]
 ) -> None:
-    image = draw_screenshot(puzzle, cell=cell, border=border, origin=origin)
+    image = draw_screenshot(puzzle, cell=cell, origin=origin)
     assert import_screenshot(save(image, tmp_path / "board.png")).puzzle == canonical(puzzle)
 
 
-@pytest.mark.parametrize(("puzzle", "cell", "border", "origin"), VARIATIONS[::2], ids=lambda v: str(v.size) if isinstance(v, Puzzle) else None)
+@pytest.mark.parametrize(("puzzle", "cell", "origin"), VARIATIONS, ids=IDS)
 def test_r9_2_reads_jpeg_screenshots(
-    tmp_path: Path, puzzle: Puzzle, cell: int, border: int, origin: tuple[int, int]
+    tmp_path: Path, puzzle: Puzzle, cell: int, origin: tuple[int, int]
 ) -> None:
-    image = draw_screenshot(puzzle, cell=cell, border=border, origin=origin)
+    image = draw_screenshot(puzzle, cell=cell, origin=origin)
     assert import_screenshot(save(image, tmp_path / "board.jpg", quality=80)).puzzle == canonical(puzzle)
 
 
 # R9.1a Marks are ignored
 
 
-@pytest.mark.parametrize("index", range(len(VARIATIONS)))
+@pytest.mark.parametrize("index", range(len(VARIATIONS)), ids=IDS)
 def test_r9_1a_cats_and_crosses_are_ignored(tmp_path: Path, index: int) -> None:
-    puzzle, cell, border, origin = VARIATIONS[index]
+    puzzle, cell, origin = VARIATIONS[index]
     rng = random.Random(index)
     marks = {cell_: rng.choice(["cat", "cross"]) for cell_ in puzzle.cells() if rng.random() < 0.5}
-    image = draw_screenshot(puzzle, cell=cell, border=border, origin=origin, marks=marks)
+    image = draw_screenshot(puzzle, cell=cell, origin=origin, marks=marks)
     assert import_screenshot(save(image, tmp_path / "board.png")).puzzle == canonical(puzzle)
 
 
@@ -106,8 +106,17 @@ def test_r9_1a_cats_and_crosses_are_ignored(tmp_path: Path, index: int) -> None:
 
 def test_r9_4_no_board_in_image(tmp_path: Path) -> None:
     path = save(Image.new("RGB", (400, 700), "white"), tmp_path / "blank.png")
-    with pytest.raises(ImageImportError, match="couldn't find the board"):
+    with pytest.raises(ImageImportError, match="couldn't find the board: no colored tiles"):
         import_screenshot(path)
+
+
+def test_r9_4_other_colored_things_in_the_screenshot(tmp_path: Path) -> None:
+    """A colored button below the board makes the colored area tall, not square."""
+    image = draw_screenshot(EXAMPLE)
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((40, image.height - 30, 200, image.height - 5), fill="#3b82f6")
+    with pytest.raises(ImageImportError, match="crop the screenshot closer to the board"):
+        import_screenshot(save(image, tmp_path / "board.png"))
 
 
 def test_r9_4_two_regions_with_the_same_color(tmp_path: Path) -> None:
@@ -173,8 +182,7 @@ def real_screenshot_cases() -> list[Path]:
 
 @pytest.mark.parametrize("path", real_screenshot_cases(), ids=lambda path: path.name)
 def test_r9_5_real_screenshots(path: Path) -> None:
-    expected_text = path.with_suffix(".txt").read_text(encoding="utf-8")
-    expected = Puzzle.from_rows([line.strip() for line in expected_text.splitlines() if line.strip()])
+    expected = read_puzzle_file(path.with_suffix(".txt"))
     assert import_screenshot(path).puzzle == canonical(expected)
 
 
