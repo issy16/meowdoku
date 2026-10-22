@@ -226,9 +226,8 @@ Step 5 was added at the same time, when marks went from ignored to read.
   - `IMG_7117.PNG`: a full phone screenshot of a 10×10 game in progress,
     with 5 cats and 75 ✕ marks.
 
-  All expected grids and marks were transcribed by Claude and still need the
-  owner's confirmation. Each grid has exactly one solution, which a misread
-  cell would very likely break. In `IMG_7117`, all 5 transcribed cats are in
+  All expected grids and marks were transcribed by Claude and checked
+  against the game by the owner. Each grid also has exactly one solution. In `IMG_7117`, all 5 transcribed cats are in
   that solution and no ✕ is on a solution cell. Copies of both also read correctly when shrunk to a third
   of their size or saved as JPEG quality 40. Each takes about 0.5 s.
 - **Synthetic screenshots:** drawn in the measured style, from 4×4 to 12×12,

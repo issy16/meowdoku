@@ -1,4 +1,3 @@
-# Transcribed from IMG_7128.jpg by Claude, not by the owner: please confirm.
 # Check: this grid has exactly one solution (meowdoku --count-all).
 GPPPPPPPBB
 GPYYTTBBBB
