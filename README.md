@@ -13,8 +13,8 @@ Planned features:
   progress, with a plain-English reason. Hints never reveal answers or
   place marks for you.
 
-> **Status:** Milestone 1 (scaffolding and documentation). The solver is not
-> implemented yet. See [Roadmap](#roadmap).
+> **Status:** Milestone 2 (puzzle parsing and input validation). The solver
+> is not implemented yet. See [Roadmap](#roadmap).
 
 ## Rules
 
@@ -82,7 +82,7 @@ docs/              requirements and algorithm design
 ## Roadmap
 
 1. Scaffolding and documentation ✅
-2. Puzzle representation, parser, and input validation
+2. Puzzle representation, parser, and input validation ✅
 3. Solution validator (rule checker)
 4. Backtracking solver, cross-checked against independent oracles
 5. Command-line interface

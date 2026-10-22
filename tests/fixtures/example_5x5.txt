@@ -1,0 +1,6 @@
+# 5x5 example from README.md; unique solution (verified by brute force)
+AABBB
+ACCCB
+ACDDB
+EEDDB
+EEEBB
