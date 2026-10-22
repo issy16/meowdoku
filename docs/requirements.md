@@ -83,7 +83,7 @@ reported together in `.problems`.
 - **R7.2** `next_hint(puzzle, state)` returns the next available hint from
   the current state. It never modifies the state.
 - **R7.3** A hint names the deduction rule used, the cells it's based on, the
-  cells it changes (cat to place or cells to mark ✕), and a plain-English
+  conclusion (a cat belongs in a cell, or cells can be marked ✕), and a plain-English
   reason using 1-indexed row and column numbers.
 - **R7.4** Deduction rules are tried simplest first, in the fixed order in
   docs/algorithm.md. The first rule that gives new information is returned, so
@@ -92,9 +92,9 @@ reported together in `.problems`.
   points at the conflicting cells. If no solution matches the state, the hint
   says the board has a mistake and, when the puzzle has a unique solution,
   points at the first wrong mark in row-major order.
-- **R7.6** If no deduction rule applies, the hint falls back to revealing one
-  cat from the solution, provided the puzzle has a unique solution. For
-  puzzles with no solution or several, the hint says so instead.
+- **R7.6** Hints never reveal the solution. If no deduction rule applies, the
+  hint says "No simple step found; try Solve." If the puzzle itself has no
+  solution, the hint says so.
 - **R7.7** Deduction rules must be sound: a hint never contradicts the
   puzzle's solution.
 
@@ -110,8 +110,8 @@ reported together in `.problems`.
   colors, assigned in order of each region's first appearance (row-major).
 - **R8.4** Clicking a cell cycles it: empty → ✕ → cat → empty.
 - **R8.5** Controls: **Open** (a text puzzle or a screenshot), **Hint**
-  (highlights the hint's cells and shows its reason; a second click applies
-  it), **Check** (highlights rule violations), **Solve** (shows a solution,
+  (highlights the hint's cells and shows its reason; it never places marks,
+  so the player makes the move), **Check** (highlights rule violations), **Solve** (shows a solution,
   noting when there are several or none), and **Reset**.
 - **R8.6** When the board is a complete valid solution, the window shows
   "Solved!".
@@ -122,8 +122,10 @@ reported together in `.problems`.
 
 ## R9 Screenshot import
 
-- **R9.1** `import_screenshot(path)` reads a screenshot of an **empty**
-  Meowdoku board and returns the text grid (R3) plus each region's RGB color.
+- **R9.1** `import_screenshot(path)` reads a screenshot of a Meowdoku board
+  and returns the text grid (R3) plus each region's RGB color.
+- **R9.1a** Screenshots may show a game in progress. Any cats or ✕ marks are
+  ignored, and the puzzle is imported as an empty board.
 - **R9.2** It supports PNG and JPEG through Pillow, installed as the optional
   `[image]` extra. Every other feature works without Pillow. If Pillow is
   missing, import raises a `MeowdokuError` that includes the install command.
@@ -147,7 +149,7 @@ reported together in `.problems`.
 
 ## Out of scope (for now)
 
-- Reading cats or ✕ marks from screenshots (the board must be empty)
+- Importing the player's cats or ✕ marks from screenshots (they are ignored)
 - Photos of screens, rotated or skewed images
 - Undo/redo, timers, and saving progress
 - Web or mobile interfaces

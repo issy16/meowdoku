@@ -35,7 +35,7 @@ src/meowdoku/
   solver.py        backtracking search (iter_solutions, solve)
   state.py         BoardState: player's cats and ✕ marks
   deduce.py        deduction rules D1–D5 (see docs/algorithm.md)
-  hints.py         next_hint: violations, mistakes, deductions, fallback
+  hints.py         next_hint: violations, mistakes, deductions (never reveals answers)
   image_import.py  screenshot -> text grid + region colors (Pillow)
   cli.py           thin command-line wrapper
   gui.py           thin tkinter wrapper: drawing and event handling only

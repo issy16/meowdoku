@@ -6,10 +6,12 @@ and backtracking search. It reports whether a puzzle has **no solution**,
 
 Planned features:
 
-- **Screenshot import:** load a screenshot of an empty Meowdoku board.
+- **Screenshot import:** load a screenshot of a Meowdoku board. Any cats or
+  ✕ marks in it are ignored, so you start from an empty board.
 - **Colored board UI:** play on a simple colored grid like the Meowdoku app.
 - **Next available hint:** get the next logical step from your current
-  progress, with a plain-English reason.
+  progress, with a plain-English reason. Hints never reveal answers or
+  place marks for you.
 
 > **Status:** Milestone 1 (scaffolding and documentation). The solver is not
 > implemented yet. See [Roadmap](#roadmap).

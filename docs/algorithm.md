@@ -90,10 +90,12 @@ The solver is never tested only against itself:
 Hints reason over a `BoardState` where each cell is a cat, ✕, or open
 (neither). `next_hint` works in this order and stops at the first result:
 
-1. **Rule violations:** use `rules.find_violations` on the placed cats.
-2. **Mistakes:** if no solution matches the current marks, report it (R7.5).
-3. **Deduction rules D1–D5** below, simplest first.
-4. **Fallback:** reveal one cat from the unique solution (R7.6).
+1. **No solution:** if the puzzle itself has no solution, say so (R7.6).
+2. **Rule violations:** use `rules.find_violations` on the placed cats.
+3. **Mistakes:** if no solution matches the current marks, report it (R7.5).
+4. **Deduction rules D1–D5** below, simplest first.
+5. **Nothing found:** "No simple step found; try Solve." Hints never reveal
+   the solution (R7.6).
 
 | Rule | Name | Statement |
 |---|---|---|
@@ -126,23 +128,29 @@ Hints reason over a `BoardState` where each cell is a cat, ✕, or open
   random generation, apply hints repeatedly from an empty board. Every
   placed cat and every ✕ must agree with the solution, checked by the
   validator. A disagreement means a rule is unsound.
-- **Progress:** each applied hint must add at least one mark, and repeating
-  hints must always end with the puzzle solved.
+- **Progress:** in tests (the GUI never applies hints), applying a hint's
+  conclusion must add at least one new mark. Repeating this ends with the
+  puzzle solved or with "No simple step found". Tests record which fixtures
+  D1–D5 solve completely.
 
 ## Screenshot import
 
 1. Load the image with Pillow and convert it to RGB.
 2. Find the board: the largest roughly square area enclosed by grid lines.
 3. Find N by counting the grid lines along each edge (they must agree).
-4. Sample a small patch at the center of each cell and take its median color.
+4. Find each cell's region color: the most common color inside the cell,
+   excluding a margin along the grid lines. A cat or ✕ icon covers only part
+   of the cell, so the background still wins and marks are ignored (R9.1a).
 5. Group cell colors into regions. Colors close together (by RGB distance)
    form a group. If there aren't exactly N groups, raise `ImageImportError`.
 6. Label the regions `A`, `B`, … in row-major order of first appearance, then
    hand the text grid to the normal parser.
 
 The thresholds are tuned against the sample screenshots in
-`tests/fixtures/screenshots/`. Tests also use synthetic images generated
-with known regions, so detection can be checked without real screenshots.
+`tests/fixtures/screenshots/`, including at least one in-progress board with
+cats and ✕ marks. Tests also use synthetic images generated with known
+regions, with and without drawn marks, so detection can be checked without
+real screenshots.
 
 ## Alternatives considered
 
