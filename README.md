@@ -13,7 +13,7 @@ Planned features:
   progress, with a plain-English reason. Hints never reveal answers or
   place marks for you.
 
-> **Status:** Milestone 5 (command-line interface). Hints, the GUI, and
+> **Status:** Milestone 6 (hints, usable from Python). The GUI and
 > screenshot import come next. See [Roadmap](#roadmap).
 
 ## Rules
@@ -98,6 +98,6 @@ docs/              requirements and algorithm design
 3. Solution validator (rule checker) ✅
 4. Backtracking solver, cross-checked against independent oracles ✅
 5. Command-line interface ✅
-6. Board state and next-available hints
+6. Board state and next-available hints ✅
 7. Colored-board GUI (tkinter)
 8. Screenshot import (Pillow, optional)

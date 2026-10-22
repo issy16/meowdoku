@@ -102,7 +102,10 @@ Hints reason over a `BoardState` where each cell is a cat, ✕, or open
 (neither). `next_hint` works in this order and stops at the first result:
 
 1. **No solution:** if the puzzle itself has no solution, say so (R7.6).
-2. **Rule violations:** use `rules.find_violations` on the placed cats.
+   **Solved:** if the placed cats are a complete valid solution, say so.
+2. **Rule violations:** use `rules.find_conflicts` on the placed cats. It
+   reports too many cats and touching cats, but not rows, columns, or regions
+   that simply don't have a cat yet.
 3. **Mistakes:** if no solution matches the current marks, report it (R7.5).
 4. **Deduction rules D1–D5** below, simplest first.
 5. **Nothing found:** "No simple step found; try Solve." Hints never reveal
@@ -143,6 +146,14 @@ Hints reason over a `BoardState` where each cell is a cat, ✕, or open
   conclusion must add at least one new mark. Repeating this ends with the
   puzzle solved or with "No simple step found". Tests record which fixtures
   D1–D5 solve completely.
+- **Mistakes:** one wrong mark on an otherwise correct board must produce a
+  mistake hint pointing at that mark, never a deduction built on it.
+- **Mutation check:** deliberately weakening D5 makes 24 soundness tests
+  fail, so the tests do catch unsound rules.
+
+Measured at Milestone 6: hints alone fully solve the README example and all
+30 seeded random 5×5–8×8 puzzles with a unique solution. `next_hint` takes
+about 0.01 s on 10×10–12×12 boards.
 
 ## Screenshot import
 

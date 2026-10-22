@@ -54,6 +54,17 @@ def is_valid_solution(puzzle: Puzzle, cats: Collection[Cell]) -> bool:
     return not find_violations(puzzle, cats)
 
 
+def find_conflicts(puzzle: Puzzle, cats: Collection[Cell]) -> list[RuleViolation]:
+    """Violations that adding more cats can't fix, for checking a board in progress.
+
+    Keeps too many cats in a row, column, or region, touching cats, and cats
+    off the board. Leaves out rows, columns, and regions that simply have no
+    cat yet. Those are the only violations whose cells aren't all cats.
+    """
+    placed = frozenset(cats)
+    return [violation for violation in find_violations(puzzle, placed) if set(violation.cells) <= placed]
+
+
 def check_bounds(puzzle: Puzzle, cats: frozenset[Cell]) -> list[RuleViolation]:
     return [
         RuleViolation(

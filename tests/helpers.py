@@ -7,7 +7,9 @@ from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
+from meowdoku.deduce import Deduction
 from meowdoku.puzzle import Cell, Puzzle
+from meowdoku.state import BoardState, Mark
 
 LABELS = string.ascii_uppercase
 
@@ -95,3 +97,10 @@ def imported_modules(module: ModuleType) -> set[str]:
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.add(node.module)
     return names
+
+
+def apply_deduction(state: BoardState, deduction: Deduction) -> BoardState:
+    """Make the marks a deduction allows. Only tests do this; the GUI never does (R8.5)."""
+    if deduction.place_cat is not None:
+        return state.with_mark(deduction.place_cat, Mark.CAT)
+    return state.with_crosses(deduction.cross_out)

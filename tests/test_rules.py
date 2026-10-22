@@ -182,3 +182,16 @@ def test_result_does_not_depend_on_input_order() -> None:
 
 def test_r5_3_rules_module_does_not_import_solver() -> None:
     assert not any("solver" in name for name in imported_modules(meowdoku.rules))
+
+
+# find_conflicts: for boards in progress
+
+
+def test_find_conflicts_ignores_missing_cats() -> None:
+    assert meowdoku.rules.find_conflicts(EXAMPLE, [(0, 4)]) == []
+
+
+def test_find_conflicts_keeps_too_many_touching_and_off_board() -> None:
+    conflicts = meowdoku.rules.find_conflicts(COLUMN_STRIPES_4, [(0, 0), (0, 1), (7, 7)])
+    assert rules_of(conflicts) == [Rule.OUT_OF_BOUNDS, Rule.ROW, Rule.ADJACENT]
+    assert conflicts[1].cells == ((0, 0), (0, 1))
