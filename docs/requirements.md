@@ -97,6 +97,11 @@ reported together in `.problems`.
   solution, the hint says so.
 - **R7.7** Deduction rules must be sound: a hint never contradicts the
   puzzle's solution.
+- **R7.8** In the GUI, hint and Check messages name regions by color, e.g.
+  "the pink region", using the closest of a list of named colors that
+  includes the real game's tile colors. If two regions would get the same
+  name, both keep their letter: "region 'A' (green)". The command line keeps
+  letters, since it shows the letter grid. (Added at the owner's request.)
 
 ## R8 Graphical interface
 

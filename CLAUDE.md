@@ -40,6 +40,7 @@ src/meowdoku/
   deduce.py        deduction rules D1–D5 (see docs/algorithm.md)
   hints.py         next_hint: violations, mistakes, deductions (never reveals answers)
   image_import.py  screenshot -> text grid + region colors (Pillow)
+  colors.py        plain color names for regions ("the pink region")
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
   gui.py           thin tkinter wrapper: drawing and event handling only
@@ -49,7 +50,7 @@ Allowed imports (everything may import `puzzle`):
 
 - `cli` -> `image_import`, `parser`, `solver`
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
-- `game` -> `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
+- `game` -> `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
 - `hints` -> `deduce`, `rules`, `solver`, `state`
 - `image_import` -> `parser`
 - `deduce`, `rules` -> `state`

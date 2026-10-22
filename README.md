@@ -95,7 +95,7 @@ file or a screenshot. Screenshots keep the game's own region colors.
 
 - Click a cell to cycle it: empty → ✕ → cat → empty.
 - **Hint** highlights the cells behind the next logical step (orange) and
-  explains it below the board. It never places marks for you. Wrong marks and
+  explains it below the board, naming regions by color ("the pink region"). It never places marks for you. Wrong marks and
   broken rules are outlined in red instead.
 - **Check** outlines cats that break a rule in red.
 - **Solve** shows a solution in gray without changing your marks.

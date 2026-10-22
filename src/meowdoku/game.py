@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Self
 
+from meowdoku.colors import name_regions, region_phrases
 from meowdoku.hints import HintKind, next_hint
 from meowdoku.image_import import import_screenshot, is_image_path
 from meowdoku.parser import parse_puzzle, read_puzzle_file
@@ -20,23 +21,24 @@ from meowdoku.state import BoardState, Mark
 EXAMPLE_PUZZLE = "AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"
 
 # Soft colors in the style of the Meowdoku app; at least MAX_SIZE (16) of them (R8.3).
+# The comments are the names hints use for them (colors.NAMED_COLORS).
 PALETTE = (
-    "#f4a7a3",  # rose
-    "#a8d5ba",  # mint
-    "#a7c7f4",  # sky
-    "#f9d98c",  # butter
-    "#c9b3f2",  # lavender
-    "#f7c19b",  # apricot
-    "#9fdcdc",  # aqua
+    "#f4a7a3",  # red
+    "#a8d5ba",  # green
+    "#a7c7f4",  # blue
+    "#f9d98c",  # yellow
+    "#c9b3f2",  # purple
+    "#f7c19b",  # orange
+    "#9fdcdc",  # teal
     "#e0e48f",  # lime
     "#f2b5d8",  # pink
-    "#bfc9d9",  # slate
-    "#d9b99b",  # sand
-    "#b5e3a1",  # leaf
-    "#8fc1e3",  # cornflower
+    "#bfc9d9",  # gray
+    "#d9b99b",  # tan
+    "#b5e3a1",  # light green
+    "#8fc1e3",  # sky blue
     "#e8a0a0",  # coral
-    "#cfe8f7",  # ice
-    "#d4c4a8",  # oat
+    "#cfe8f7",  # pale blue
+    "#d4c4a8",  # beige
 )
 
 SOLVED_MESSAGE = "Solved!"
@@ -68,6 +70,7 @@ class GameSession:
 
     puzzle: Puzzle
     colors: Mapping[str, str] = field(default_factory=dict)
+    region_phrases: dict[str, str] = field(init=False, default_factory=dict)
     state: BoardState = field(init=False)
     highlight: frozenset[Cell] = field(init=False, default=frozenset())
     highlight_style: Highlight | None = field(init=False, default=None)
@@ -77,6 +80,7 @@ class GameSession:
     def __post_init__(self) -> None:
         if not self.colors:
             self.colors = default_region_colors(self.puzzle)
+        self.region_phrases = region_phrases(self.colors)
         self.state = BoardState.empty(self.puzzle.size)
 
     @classmethod
@@ -111,7 +115,7 @@ class GameSession:
         """Highlight the next hint and explain it. Never changes the marks (R8.5)."""
         hint = next_hint(self.puzzle, self.state)
         self._clear()
-        self.message = hint.message
+        self.message = name_regions(hint.message, self.region_phrases)
         self.highlight = hint.focus
         if hint.kind in (HintKind.RULE_BROKEN, HintKind.MISTAKE):
             self.highlight_style = Highlight.PROBLEM
@@ -130,7 +134,8 @@ class GameSession:
             return
         self.highlight = frozenset(cell for conflict in conflicts for cell in conflict.cells)
         self.highlight_style = Highlight.PROBLEM
-        self.message = f"{count_of(len(conflicts), 'problem')}: {conflicts[0].message}."
+        first = name_regions(conflicts[0].message, self.region_phrases)
+        self.message = f"{count_of(len(conflicts), 'problem')}: {first}."
 
     def solve(self) -> None:
         """Show a solution on top of the board without changing the player's marks."""
