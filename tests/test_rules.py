@@ -1,14 +1,14 @@
 """Validator tests on hand-built placements. None of them use the solver."""
 
-import ast
 import itertools
-from pathlib import Path
 
 import pytest
 
 import meowdoku.rules
 from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.rules import Rule, RuleViolation, find_violations, is_valid_solution
+
+from helpers import imported_modules
 
 # README example; its only solution was found by hand-checked brute force.
 EXAMPLE = Puzzle.from_rows(["AABBB", "ACCCB", "ACDDB", "EEDDB", "EEEBB"])
@@ -181,11 +181,4 @@ def test_result_does_not_depend_on_input_order() -> None:
 
 
 def test_r5_3_rules_module_does_not_import_solver() -> None:
-    tree = ast.parse(Path(meowdoku.rules.__file__).read_text(encoding="utf-8"))
-    imported = set()
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            imported.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            imported.add(node.module)
-    assert not any("solver" in name for name in imported)
+    assert not any("solver" in name for name in imported_modules(meowdoku.rules))
