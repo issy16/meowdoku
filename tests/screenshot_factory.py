@@ -90,3 +90,51 @@ def save(image: Image.Image, path: Path, quality: int = 85) -> Path:
 
 def hex_to_rgb(color: str) -> tuple[int, int, int]:
     return (int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16))
+
+
+def add_phone_ui(board: Image.Image, seed: int = 0) -> Image.Image:
+    """Surround a board screenshot with the app's other screen parts, as in IMG_7114.PNG.
+
+    Header text, a fish pill, a rule card with small icons, round buttons
+    with a red badge, and a multicolored ad banner. None of them is square.
+    """
+    import random
+
+    rng = random.Random(seed)
+    width = board.width
+    top, bottom = int(0.55 * width), int(0.5 * width)
+    image = Image.new("RGB", (width, top + board.height + bottom), PAGE_COLOR)
+    image.paste(board, (0, top))
+    draw = ImageDraw.Draw(image)
+    w = width / 100
+
+    # Header: "Level 218   Score 0" as dark text-like blocks
+    for x0 in (30, 58):
+        draw.rectangle((x0 * w, 14 * w, (x0 + 12) * w, 18 * w), fill="#8b5a4a")
+        draw.rectangle((x0 * w, 20 * w, (x0 + 9) * w, 25 * w), fill="#8b5a4a")
+    # Fish pill
+    draw.rounded_rectangle((52 * w, 30 * w, 76 * w, 38 * w), radius=4 * w, fill=CARD_COLOR)
+    for i in range(3):
+        draw.ellipse(((55 + 6 * i) * w, 31 * w, (60 + 6 * i) * w, 37 * w), fill="#f5b400")
+    # Rule card: white card with small beige squares, dark crosses, and text
+    draw.rounded_rectangle((3 * w, 41 * w, 97 * w, 53 * w), radius=2 * w, fill=CARD_COLOR)
+    for panel in range(3):
+        x0 = (6 + 31 * panel) * w
+        for i in range(3):
+            for j in range(3):
+                x, y = x0 + i * 2.6 * w, (43 + j * 2.6) * w
+                draw.rectangle((x, y, x + 2.2 * w, y + 2.2 * w), fill="#e6c9b6")
+                draw.line((x, y, x + 2.2 * w, y + 2.2 * w), fill="#7a4a3a", width=2)
+        draw.rectangle((x0 + 9 * w, 45 * w, x0 + 24 * w, 47 * w), fill="#8b5a4a")
+
+    y0 = top + board.height
+    # Round buttons with a red badge
+    for cx in (33, 67):
+        draw.ellipse(((cx - 7) * w, y0 + 6 * w, (cx + 7) * w, y0 + 20 * w), fill=CARD_COLOR)
+        draw.ellipse(((cx - 3) * w, y0 + 10 * w, (cx + 3) * w, y0 + 16 * w), fill="#2b2b2b")
+    draw.ellipse((36 * w, y0 + 4 * w, 42 * w, y0 + 10 * w), fill="#e53935")
+    # Ad banner: a wide strip of random colors
+    for i in range(40):
+        x = (10 + 2 * i) * w
+        draw.rectangle((x, y0 + 26 * w, x + 2 * w, y0 + 38 * w), fill=tuple(rng.randrange(256) for _ in range(3)))
+    return image

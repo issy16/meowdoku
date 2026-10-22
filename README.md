@@ -13,9 +13,10 @@ Planned features:
   progress, with a plain-English reason. Hints never reveal answers or
   place marks for you.
 
-> **Status:** All 8 milestones are built. Screenshot import reads the one
-> real screenshot so far (an empty 10×10 board). Boards with cats and ✕ marks
-> haven't been tried on real screenshots yet. See [Roadmap](#roadmap).
+> **Status:** All 8 milestones are built. Screenshot import reads both real
+> screenshots so far (empty 10×10 boards, one cropped and one full-screen).
+> Boards with cats and ✕ marks haven't been tried on real screenshots yet.
+> See [Roadmap](#roadmap).
 
 ## Rules
 
@@ -78,9 +79,8 @@ E*EBB
 meowdoku my-screenshot.png
 ```
 
-PNG and JPEG screenshots of a Meowdoku board work in place of a text file.
-Crop the screenshot to the board: other colored things on the page confuse
-the board detection. The command prints the grid it detected, so you can
+PNG and JPEG screenshots of a Meowdoku board work in place of a text file:
+a full phone screenshot or one cropped to the board. The command prints the grid it detected, so you can
 check it, then solves. Cats and ✕ marks in the screenshot are ignored. This
 needs Pillow: `python -m pip install -e ".[image]"`.
 
@@ -130,4 +130,4 @@ docs/              requirements and algorithm design
 5. Command-line interface ✅
 6. Board state and next-available hints ✅
 7. Colored-board GUI (tkinter) ✅
-8. Screenshot import (Pillow, optional) ✅ (tuned on one real screenshot)
+8. Screenshot import (Pillow, optional) ✅ (tuned on two real screenshots)

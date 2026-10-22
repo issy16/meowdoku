@@ -168,8 +168,12 @@ lines and no region borders: regions are shown only by tile color.
 
 1. **Find the board (`find_board`).** Read the page color from the image
    corners. Tile pixels are those that differ by more than 40 in some color
-   channel from both white and the page color. The board is the box around all
-   tile pixels, and it must be square.
+   channel from both white and the page color. Rows where at least 30% of the
+   pixels are tile pixels form horizontal bands; gaps of up to 2% of the image
+   width (the white gaps between tile rows) are bridged. Headers, icons,
+   buttons, and ad banners make short, wide bands. The board is the largest
+   band whose colored area is square. This works on full, uncropped phone
+   screenshots.
 2. **Count the cells (`count_cells`).** Read pixel colors straight across
    the board along 60 rows and 60 columns. At each position, ask whether the
    color changes sharply within a few pixels, and take the median answer.
@@ -189,7 +193,9 @@ lines and no region borders: regions are shown only by tile color.
 
 **History.** The first version (Milestone 8) guessed at a board with a dark
 frame, grid lines, and thick region borders. The real screenshot has none of
-those, so step 1 was replaced. Steps 2–4 carried over: the white gaps act
+those, so step 1 was replaced. It first took the box around *all* tile pixels,
+which needed a cropped screenshot. Banding the rows, added for
+`IMG_7114.PNG`, made full screenshots work. Steps 2–4 carried over: the white gaps act
 like grid lines for step 2. Two earlier fixes still matter:
 
 - Gaps are found by *color change*, not brightness.
@@ -198,23 +204,26 @@ like grid lines for step 2. Two earlier fixes still matter:
 
 **Status.**
 
-- **Real screenshots:** one, `IMG_7128.jpg`, a cropped 10×10 empty board,
-  read correctly. Its expected grid was transcribed by Claude and still needs
-  the owner's confirmation. That grid does have exactly one solution, which a
-  misread cell would very likely break. Copies of it also read correctly when
-  shrunk to a quarter of its size, saved as JPEG quality 40, or padded with
-  extra page margin. It takes about 0.5 s.
+- **Real screenshots:** both read correctly.
+  - `IMG_7128.jpg`: a cropped 10×10 empty board.
+  - `IMG_7114.PNG`: a full 1206×2622 phone screenshot of another 10×10
+    empty board, with the header, rule card, buttons, and an ad banner.
+
+  Both expected grids were transcribed by Claude and still need the owner's
+  confirmation. Each has exactly one solution, which a misread cell would
+  very likely break. Copies of both also read correctly when shrunk to a third
+  of their size or saved as JPEG quality 40. Each takes about 0.5 s.
 - **Synthetic screenshots:** drawn in the measured style, from 4×4 to 12×12,
-  as PNG and JPEG, with and without cats and ✕ marks.
+  as PNG and JPEG, with and without cats and ✕ marks, both cropped and inside
+  a full phone screen.
 
 **Known limits:**
 
-- The screenshot should be cropped to the board. Other colored things on
-  the page, such as buttons or a header, make the colored area non-square,
-  and import stops with "crop the screenshot closer to the board".
 - How the real game draws cats and ✕ marks hasn't been seen yet. The tests
   use dark marks in the middle of the tile.
 - Dark mode hasn't been seen either.
+- A square, colorful ad could be mistaken for the board if it is larger
+  than the board. The real board fills the screen width, so this is unlikely.
 
 ## Alternatives considered
 

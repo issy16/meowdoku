@@ -21,12 +21,16 @@ from meowdoku.puzzle import MAX_SIZE, Cell, MeowdokuError, Puzzle
 if TYPE_CHECKING:
     from PIL.Image import Image
 
+BOX_FILTER = 4  # PIL.Image.Resampling.BOX: averages pixels, without importing Pillow here
+
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})
 INSTALL_HINT = 'python -m pip install -e ".[image]"'
 
 WHITE = (255, 255, 255)
 TILE_CONTRAST = 40  # channel difference that separates a tile from white or the page
 SQUARE_TOLERANCE = 0.1  # allowed width/height mismatch of the board
+MIN_ROW_COVERAGE = 0.3  # share of a row that is tiles, for a row through the board
+MAX_ROW_GAP = 0.02  # gaps up to this share of the image width join rows into one band
 EDGE_STRENGTH = 20  # RGB distance that counts as a sharp color change between tiles
 EDGE_SAMPLES = 60  # rows (or columns) sampled when looking for the gaps between tiles
 CELL_BAND = (0.15, 0.2)  # sample this far inside each cell edge: clear of gaps, corners, and icons
@@ -106,24 +110,39 @@ def _open_image(path: Path) -> "Image":
 
 
 def find_board(image: "Image") -> Box:
-    """Find the grid of colored tiles.
+    """Find the grid of colored tiles, even in a full phone screenshot.
 
     In Meowdoku the board is a white card of rounded, colored tiles with white
     gaps between them, on a plain page background. Tile pixels are the ones
-    far from both white and the page color; the board is the box around them.
+    far from both white and the page color. Rows that are mostly tile pixels
+    form horizontal bands (small gaps between tile rows are bridged). Headers,
+    icons, buttons, and ad banners make short, wide bands; the board is the
+    largest band whose colored area is square.
     """
     background = _page_color(image)
     tiles = _darker(_far_from(image, WHITE), _far_from(image, background))
-    extent = tiles.getbbox()
-    if extent is None:
+    if tiles.getbbox() is None:
         raise ImageImportError("couldn't find the board: no colored tiles were found")
-    board = Box(*extent)
-    if abs(board.width - board.height) > SQUARE_TOLERANCE * max(board.width, board.height):
-        raise ImageImportError(
-            f"couldn't find the board: the colored area is {board.width}x{board.height} pixels, "
-            "not square; crop the screenshot closer to the board"
-        )
-    return board
+    width, height = image.size
+    coverage = tiles.resize((1, height), BOX_FILTER).tobytes()
+    tile_rows = [y for y in range(height) if coverage[y] >= MIN_ROW_COVERAGE * 255]
+    bands = _consecutive_groups(tile_rows, max(2, int(MAX_ROW_GAP * width)))
+    boards = [box for band in bands if (box := _square_box(tiles, band[0], band[-1] + 1))]
+    if not boards:
+        raise ImageImportError("couldn't find the board: no square grid of colored tiles was found")
+    return max(boards, key=lambda box: box.width * box.height)
+
+
+def _square_box(tiles: "Image", top: int, bottom: int) -> Box | None:
+    """The box around the tile pixels between two rows, if it is square."""
+    extent = tiles.crop((0, top, tiles.width, bottom)).getbbox()
+    if extent is None:
+        return None
+    left, band_top, right, band_bottom = extent
+    box = Box(left, top + band_top, right, top + band_bottom)
+    if abs(box.width - box.height) > SQUARE_TOLERANCE * max(box.width, box.height):
+        return None
+    return box
 
 
 def _page_color(image: "Image") -> RGB:

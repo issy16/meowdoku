@@ -21,7 +21,7 @@ from meowdoku.parser import read_puzzle_file  # noqa: E402
 from meowdoku.puzzle import MeowdokuError, Puzzle  # noqa: E402
 
 from helpers import LABELS, random_puzzle  # noqa: E402
-from screenshot_factory import TEST_COLORS, draw_screenshot, hex_to_rgb, save  # noqa: E402
+from screenshot_factory import TEST_COLORS, add_phone_ui, draw_screenshot, hex_to_rgb, save  # noqa: E402
 
 REAL_SCREENSHOTS = Path(__file__).parent / "fixtures" / "screenshots"
 EXAMPLE = Puzzle.from_rows(["AABBB", "ACCCB", "ACDDB", "EEDDB", "EEEBB"])
@@ -110,13 +110,31 @@ def test_r9_4_no_board_in_image(tmp_path: Path) -> None:
         import_screenshot(path)
 
 
-def test_r9_4_other_colored_things_in_the_screenshot(tmp_path: Path) -> None:
-    """A colored button below the board makes the colored area tall, not square."""
-    image = draw_screenshot(EXAMPLE)
-    draw = ImageDraw.Draw(image)
-    draw.rectangle((40, image.height - 30, 200, image.height - 5), fill="#3b82f6")
-    with pytest.raises(ImageImportError, match="crop the screenshot closer to the board"):
-        import_screenshot(save(image, tmp_path / "board.png"))
+def test_r9_4_no_square_grid_of_tiles(tmp_path: Path) -> None:
+    """A wide colored banner alone is not a board."""
+    image = Image.new("RGB", (400, 700), "#f6f2ef")
+    ImageDraw.Draw(image).rectangle((20, 300, 380, 400), fill="#3b82f6")
+    with pytest.raises(ImageImportError, match="no square grid of colored tiles"):
+        import_screenshot(save(image, tmp_path / "banner.png"))
+
+
+# Full, uncropped phone screenshots
+
+
+@pytest.mark.parametrize("index", range(len(VARIATIONS)), ids=IDS)
+def test_reads_full_phone_screenshots(tmp_path: Path, index: int) -> None:
+    puzzle, cell, origin = VARIATIONS[index]
+    image = add_phone_ui(draw_screenshot(puzzle, cell=cell, origin=origin), seed=index)
+    assert import_screenshot(save(image, tmp_path / "phone.png")).puzzle == canonical(puzzle)
+
+
+@pytest.mark.parametrize("index", range(0, len(VARIATIONS), 2), ids=IDS[::2])
+def test_reads_full_phone_screenshots_with_marks_as_jpeg(tmp_path: Path, index: int) -> None:
+    puzzle, cell, origin = VARIATIONS[index]
+    rng = random.Random(index)
+    marks = {cell_: rng.choice(["cat", "cross"]) for cell_ in puzzle.cells() if rng.random() < 0.5}
+    image = add_phone_ui(draw_screenshot(puzzle, cell=cell, origin=origin, marks=marks), seed=index)
+    assert import_screenshot(save(image, tmp_path / "phone.jpg", quality=80)).puzzle == canonical(puzzle)
 
 
 def test_r9_4_two_regions_with_the_same_color(tmp_path: Path) -> None:
