@@ -13,8 +13,8 @@ Planned features:
   progress, with a plain-English reason. Hints never reveal answers or
   place marks for you.
 
-> **Status:** Milestone 6 (hints, usable from Python). The GUI and
-> screenshot import come next. See [Roadmap](#roadmap).
+> **Status:** Milestone 7 (colored-board GUI). Screenshot import comes next.
+> See [Roadmap](#roadmap).
 
 ## Rules
 
@@ -71,6 +71,23 @@ E*EBB
 
 `python -m meowdoku PUZZLE_FILE` does the same thing.
 
+## Playing in a window
+
+```bash
+python -m meowdoku.gui tests/fixtures/example_5x5.txt
+```
+
+Without a file, the window opens the example puzzle. **Open…** loads
+another puzzle file.
+
+- Click a cell to cycle it: empty → ✕ → cat → empty.
+- **Hint** highlights the cells behind the next logical step (orange) and
+  explains it below the board. It never places marks for you. Wrong marks and
+  broken rules are outlined in red instead.
+- **Check** outlines cats that break a rule in red.
+- **Solve** shows a solution in gray without changing your marks.
+- **Reset** clears the board. "Solved!" appears when you finish.
+
 ## Development
 
 Requires Python 3.11 or newer. The solver itself uses only the standard
@@ -99,5 +116,5 @@ docs/              requirements and algorithm design
 4. Backtracking solver, cross-checked against independent oracles ✅
 5. Command-line interface ✅
 6. Board state and next-available hints ✅
-7. Colored-board GUI (tkinter)
+7. Colored-board GUI (tkinter) ✅
 8. Screenshot import (Pillow, optional)
