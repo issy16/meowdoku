@@ -96,6 +96,28 @@ with the cats and ✕ marks from the screenshot.
 - **Solve** shows a solution in gray without changing your marks.
 - **Reset** clears the board. "Solved!" appears when you finish.
 
+## Sharing as a Mac app
+
+Build a double-clickable **Meowdoku.app** that people can use without
+installing Python:
+
+```bash
+python -m pip install -e ".[build]"
+packaging/build.sh
+```
+
+This makes `dist/Meowdoku.app` and `dist/Meowdoku-mac-<chip>.zip`. Send the
+zip. It unpacks to a folder with the app and *How to open Meowdoku.txt*.
+
+- **Chip type:** the app runs on Macs with the same chip type as the Mac
+  that built it. An Intel (`x86_64`) build also runs on Apple-chip Macs
+  through Rosetta, which macOS offers to install the first time. Build on
+  an Apple-chip Mac for a native `arm64` version.
+- **Security warning:** the app isn't signed with a paid Apple developer
+  account, so macOS blocks it the first time. The receiver opens it once
+  via System Settings > Privacy & Security > **Open Anyway**; the included
+  instructions explain this step by step.
+
 ## Development
 
 Requires Python 3.11 or newer. Installing the project also installs Pillow,
@@ -113,6 +135,7 @@ python -m pytest
 
 ```text
 src/meowdoku/      package source
+packaging/         Mac app build script, icon, and instructions for receivers
 tests/             pytest test suite
 docs/              requirements and algorithm design
 ```

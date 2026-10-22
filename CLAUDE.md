@@ -16,14 +16,22 @@ without the owner's approval**, and work one approved milestone at a time.
   Only `image_import.py` imports it; the solver, rules, hints, and
   deduction stay standard library only.
 - The GUI uses tkinter (standard library).
-- pytest is the only development dependency. Do not add packages (including
-  Hypothesis) without written justification and owner approval.
+- pytest is the only development dependency, plus PyInstaller as a
+  build-only tool for the Mac app (the `[build]` extra, approved by the
+  owner). Do not add packages (including Hypothesis) without written
+  justification and owner approval.
 
 ## Commands
 
 ```bash
 source .venv/bin/activate
 python -m pytest          # run all tests; must pass before every commit
+```
+
+Build the shareable Mac app (writes `dist/`, which is not committed):
+
+```bash
+packaging/build.sh
 ```
 
 ## Architecture

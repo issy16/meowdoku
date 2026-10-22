@@ -12,6 +12,7 @@ dependencies = ["Pillow>=10"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+build = ["pyinstaller>=6"]  # only for building the Mac app, see packaging/
 
 [project.scripts]
 meowdoku = "meowdoku.cli:main"

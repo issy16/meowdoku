@@ -153,6 +153,19 @@ reported together in `.problems`.
 - **R9.5** Supported screenshot layouts are defined by the sample screenshots
   in `tests/fixtures/screenshots/`, each with a hand-checked expected grid.
 
+## R10 Mac app for sharing
+
+Added at the owner's request, so people without Python can use the program.
+
+- **R10.1** `packaging/build.sh` builds `dist/Meowdoku.app` with PyInstaller,
+  a build-only tool, and a zip holding the app and *How to open
+  Meowdoku.txt*. The app opens the GUI (R8).
+- **R10.2** The app runs on Macs with the chip type of the Mac that built
+  it; an Intel build also runs on Apple-chip Macs through Rosetta.
+- **R10.3** The app is not signed by a paid Apple developer account, so
+  receivers approve it once in System Settings; the included text explains
+  how.
+
 ## Non-functional requirements
 
 - **NFR1** Python 3.11+. Pillow is the one runtime dependency, used only by
@@ -171,7 +184,7 @@ reported together in `.problems`.
 
 - Photos of screens, rotated or skewed images
 - Undo/redo, timers, and saving progress
-- Web or mobile interfaces
+- Web or mobile interfaces, Windows apps, and signed or notarized Mac apps
 - Puzzle generation
 - Pre-placed cats or marked cells in the input
 - Text puzzle files, or any input other than PNG/JPEG screenshots (text

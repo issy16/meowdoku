@@ -1,0 +1,26 @@
+Meowdoku
+========
+
+The first time
+--------------
+1. Double-click Meowdoku. Your Mac will say it can't check the app for
+   malicious software, because the app isn't from the App Store.
+   Click "Done" (not "Move to Trash").
+2. Open System Settings > Privacy & Security, scroll down, and click
+   "Open Anyway" next to the message about Meowdoku. Enter your password
+   if asked, then click "Open Anyway" again.
+   (On macOS 14 or older you can instead right-click Meowdoku > Open > Open.)
+3. If your Mac has an Apple chip (M1, M2, ...), it may ask to install
+   Rosetta. Click Install.
+
+After that, Meowdoku opens with a normal double-click. You can move it into
+your Applications folder.
+
+Using it
+--------
+1. Take a screenshot of the Meowdoku game on your phone and AirDrop it to
+   your Mac. A game in progress is fine: your cats and X marks come along.
+2. In Meowdoku, click "Open..." and choose the screenshot.
+3. Click a square to cycle it: empty > X > cat.
+   "Hint" explains the next logical step without giving away the answer.
+   "Check" shows broken rules. "Solve" shows the answer.
