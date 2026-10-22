@@ -72,10 +72,74 @@ reported together in `.problems`.
 - **R6.3** Exit code 0 when solving completes, whatever the status. Exit code
   2 for invalid input, with the error message on stderr and no traceback.
 - **R6.4** Coordinates shown to users are 1-indexed.
+- **R6.5** The CLI also accepts a `.png` or `.jpg` screenshot (R9). It prints
+  the detected text grid before the solve result so the user can review it.
+
+## R7 Board state and hints
+
+- **R7.1** A `BoardState` records the player's progress: each cell is empty,
+  marked ✕ (no cat), or marked as a cat. It is immutable; changes return a new
+  state.
+- **R7.2** `next_hint(puzzle, state)` returns the next available hint from
+  the current state. It never modifies the state.
+- **R7.3** A hint names the deduction rule used, the cells it's based on, the
+  cells it changes (cat to place or cells to mark ✕), and a plain-English
+  reason using 1-indexed row and column numbers.
+- **R7.4** Deduction rules are tried simplest first, in the fixed order in
+  docs/algorithm.md. The first rule that gives new information is returned, so
+  the same state always gets the same hint.
+- **R7.5** Mistakes take priority. If the state breaks a rule (R1), the hint
+  points at the conflicting cells. If no solution matches the state, the hint
+  says the board has a mistake and, when the puzzle has a unique solution,
+  points at the first wrong mark in row-major order.
+- **R7.6** If no deduction rule applies, the hint falls back to revealing one
+  cat from the solution, provided the puzzle has a unique solution. For
+  puzzles with no solution or several, the hint says so instead.
+- **R7.7** Deduction rules must be sound: a hint never contradicts the
+  puzzle's solution.
+
+## R8 Graphical interface
+
+- **R8.1** `python -m meowdoku.gui` opens a window built with tkinter
+  (standard library).
+- **R8.2** The board is a simple colored grid in the style of the Meowdoku
+  app: each region has its own fill color, with thick borders between regions
+  and thin lines inside them.
+- **R8.3** Puzzles imported from a screenshot keep their original region
+  colors. Text puzzles use a built-in palette of at least 16 distinguishable
+  colors, assigned in order of each region's first appearance (row-major).
+- **R8.4** Clicking a cell cycles it: empty → ✕ → cat → empty.
+- **R8.5** Controls: **Open** (a text puzzle or a screenshot), **Hint**
+  (highlights the hint's cells and shows its reason; a second click applies
+  it), **Check** (highlights rule violations), **Solve** (shows a solution,
+  noting when there are several or none), and **Reset**.
+- **R8.6** When the board is a complete valid solution, the window shows
+  "Solved!".
+- **R8.7** The GUI contains no game logic. Rules, hints, and solving live in
+  modules that are testable without a display.
+- **R8.8** Errors (invalid puzzle, unreadable screenshot, Pillow missing) are
+  shown in a dialog, never as a traceback.
+
+## R9 Screenshot import
+
+- **R9.1** `import_screenshot(path)` reads a screenshot of an **empty**
+  Meowdoku board and returns the text grid (R3) plus each region's RGB color.
+- **R9.2** It supports PNG and JPEG through Pillow, installed as the optional
+  `[image]` extra. Every other feature works without Pillow. If Pillow is
+  missing, import raises a `MeowdokuError` that includes the install command.
+- **R9.3** It detects the board's position and size N, samples each cell's
+  color, and groups the colors into N regions labeled `A`, `B`, `C`, … in
+  order of first appearance (row-major).
+- **R9.4** The result goes through normal parsing and validation (R3, R4).
+  Detection failures raise `ImageImportError` with a specific message, e.g.
+  "found 6 region colors; expected 7".
+- **R9.5** Supported screenshot layouts are defined by the sample screenshots
+  in `tests/fixtures/screenshots/`, each with a hand-checked expected grid.
 
 ## Non-functional requirements
 
-- **NFR1** Python 3.11+. The solver uses only the standard library.
+- **NFR1** Python 3.11+. Everything uses only the standard library, except
+  that screenshot import (R9) uses Pillow as an optional extra.
 - **NFR2** pytest is the only development dependency.
 - **NFR3** Type hints throughout. Small functions that can be tested independently.
 - **NFR4** Output is deterministic for the same input.
@@ -83,8 +147,10 @@ reported together in `.problems`.
 
 ## Out of scope (for now)
 
-- Step-by-step deduction explanations (planned later)
-- Visual or graphical interface (planned later)
+- Reading cats or ✕ marks from screenshots (the board must be empty)
+- Photos of screens, rotated or skewed images
+- Undo/redo, timers, and saving progress
+- Web or mobile interfaces
 - Puzzle generation
 - Pre-placed cats or marked cells in the input
 - Input formats other than the text grid (e.g. JSON)

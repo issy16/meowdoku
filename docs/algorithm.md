@@ -85,6 +85,65 @@ The solver is never tested only against itself:
    each solution the same way.
 5. **Hand-verified fixtures:** puzzles with known answers in `tests/fixtures/`.
 
+## Hints: deduction rules
+
+Hints reason over a `BoardState` where each cell is a cat, ✕, or open
+(neither). `next_hint` works in this order and stops at the first result:
+
+1. **Rule violations:** use `rules.find_violations` on the placed cats.
+2. **Mistakes:** if no solution matches the current marks, report it (R7.5).
+3. **Deduction rules D1–D5** below, simplest first.
+4. **Fallback:** reveal one cat from the unique solution (R7.6).
+
+| Rule | Name | Statement |
+|---|---|---|
+| D1 | Cat neighborhood | A placed cat rules out every other cell in its row, column, and region, plus its 8 neighbors |
+| D2 | Last open cell | A row, column, or region with no cat and exactly one open cell must have its cat there |
+| D3 | Confinement | If a region's open cells all lie in one row, the other cells in that row are ✕ (same for columns). Reverse: if a row's open cells all lie in one region, the region's other cells are ✕ |
+| D4 | Pigeonhole | If k regions have all their open cells inside the same k rows, every other cell in those rows is ✕ (same for columns). D3 is the case k = 1 |
+| D5 | Blocking | An open cell is ✕ if a cat there would rule out every open cell of some other row, column, or region |
+
+- D3–D5 only consider rows, columns, and regions that have no cat yet. For a
+  unit with no open cells left, "all its open cells" would be vacuously true.
+- Rules are checked in this fixed order, and cells are scanned in row-major
+  order, so hints are deterministic (R7.4).
+- D4 checks groups of regions up to size N/2. That's at most a few thousand
+  groups for N ≤ 16, which is fast enough and easy to read.
+
+### Module boundaries
+
+- `deduce.py` implements D1–D5 using only `Puzzle` and `BoardState`. It
+  never imports `solver.py`.
+- `hints.py` combines the steps above. It's the only place where deduction,
+  rule checking, and solving meet.
+- Mistake detection (step 2) takes solutions from `iter_solutions` and stops
+  at the first one that matches the marks.
+
+### Testing hints
+
+- **Per-rule tests:** small hand-built states where exactly one rule applies.
+- **Soundness (R7.7):** for unique puzzles from the fixtures and seeded
+  random generation, apply hints repeatedly from an empty board. Every
+  placed cat and every ✕ must agree with the solution, checked by the
+  validator. A disagreement means a rule is unsound.
+- **Progress:** each applied hint must add at least one mark, and repeating
+  hints must always end with the puzzle solved.
+
+## Screenshot import
+
+1. Load the image with Pillow and convert it to RGB.
+2. Find the board: the largest roughly square area enclosed by grid lines.
+3. Find N by counting the grid lines along each edge (they must agree).
+4. Sample a small patch at the center of each cell and take its median color.
+5. Group cell colors into regions. Colors close together (by RGB distance)
+   form a group. If there aren't exactly N groups, raise `ImageImportError`.
+6. Label the regions `A`, `B`, … in row-major order of first appearance, then
+   hand the text grid to the normal parser.
+
+The thresholds are tuned against the sample screenshots in
+`tests/fixtures/screenshots/`. Tests also use synthetic images generated
+with known regions, so detection can be checked without real screenshots.
+
 ## Alternatives considered
 
 | Approach | Why not (for now) |

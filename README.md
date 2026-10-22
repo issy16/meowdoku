@@ -4,6 +4,13 @@ A Python program that solves Meowdoku puzzles using constraint satisfaction
 and backtracking search. It reports whether a puzzle has **no solution**,
 **exactly one solution**, or **multiple solutions**.
 
+Planned features:
+
+- **Screenshot import:** load a screenshot of an empty Meowdoku board.
+- **Colored board UI:** play on a simple colored grid like the Meowdoku app.
+- **Next available hint:** get the next logical step from your current
+  progress, with a plain-English reason.
+
 > **Status:** Milestone 1 (scaffolding and documentation). The solver is not
 > implemented yet. See [Roadmap](#roadmap).
 
@@ -77,5 +84,6 @@ docs/              requirements and algorithm design
 3. Solution validator (rule checker)
 4. Backtracking solver, cross-checked against independent oracles
 5. Command-line interface
-
-Later, pending approval: step-by-step deduction explanations and a visual interface.
+6. Board state and next-available hints
+7. Colored-board GUI (tkinter)
+8. Screenshot import (Pillow, optional)
