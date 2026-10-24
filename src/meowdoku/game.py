@@ -6,6 +6,7 @@ The GUI only draws a GameSession and forwards clicks and button presses to it.
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import cached_property
 from pathlib import Path
 from typing import Self
 
@@ -13,9 +14,9 @@ from meowdoku.colors import name_regions, region_phrases
 from meowdoku.hints import HintKind, next_hint
 from meowdoku.image_import import import_screenshot
 from meowdoku.parser import parse_puzzle
-from meowdoku.puzzle import Cell, Puzzle, count_of
+from meowdoku.puzzle import Cell, Puzzle, count_of, describe_cell
 from meowdoku.rules import find_conflicts, is_valid_solution
-from meowdoku.solver import SolveStatus, solve
+from meowdoku.solver import SolveResult, SolveStatus, solve
 from meowdoku.state import BoardState, Mark
 
 EXAMPLE_PUZZLE = "AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"
@@ -61,7 +62,7 @@ class Highlight(Enum):
 
 
 def next_mark(mark: Mark | None) -> Mark | None:
-    """Clicking cycles a cell: empty → ✕ → cat → empty (R8.4)."""
+    """Clicking cycles a cell: empty → ✕ → cat → empty (R8.4). A wrong cat becomes ✕ (R8.9)."""
     if mark is None:
         return Mark.CROSS
     if mark is Mark.CROSS:
@@ -74,6 +75,17 @@ def default_region_colors(puzzle: Puzzle) -> dict[str, str]:
     return {label: PALETTE[index] for index, label in enumerate(puzzle.region_labels)}
 
 
+def crossed_out_by(puzzle: Puzzle, cat: Cell) -> frozenset[Cell]:
+    """Cells a correct cat rules out: its row, column, color region, and touching cells (R8.9)."""
+    row, col = cat
+    region = puzzle.region_cells[puzzle.region_of(cat)]
+    return frozenset(
+        (r, c)
+        for r, c in puzzle.cells()
+        if (r, c) != cat and (r == row or c == col or (r, c) in region or (abs(r - row) <= 1 and abs(c - col) <= 1))
+    )
+
+
 @dataclass
 class GameSession:
     """One puzzle being played: the marks, what to highlight, and a message."""
@@ -84,6 +96,7 @@ class GameSession:
     state: BoardState = field(init=False)
     highlight: frozenset[Cell] = field(init=False, default=frozenset())
     highlight_style: Highlight | None = field(init=False, default=None)
+    hint_shown: bool = field(init=False, default=False)
     revealed: frozenset[Cell] = field(init=False, default=frozenset())
     message: str = field(init=False, default="")
 
@@ -114,19 +127,50 @@ class GameSession:
     def is_solved(self) -> bool:
         return is_valid_solution(self.puzzle, self.state.cats)
 
+    @cached_property
+    def solve_result(self) -> SolveResult:
+        """Solved once per puzzle: Solve shows its first solution, and placed cats are judged against it."""
+        return solve(self.puzzle)
+
     def click(self, cell: Cell) -> None:
-        """Cycle the cell's mark, then clear hints and any shown solution."""
-        self.state = self.state.with_mark(cell, next_mark(self.state.mark_at(cell)))
-        self._clear()
+        """Cycle the cell's mark (R8.4) and judge a newly placed cat (R8.9).
+
+        Clicking hides a hint or Check result; a shown solution stays until
+        Solve is pressed again.
+        """
+        self._clear_feedback()
+        mark = next_mark(self.state.mark_at(cell))
+        self.state = self.state.with_mark(cell, mark)
+        if mark is Mark.CAT:
+            self._judge_cat(cell)
         if self.is_solved:
             self.message = SOLVED_MESSAGE
 
+    def _judge_cat(self, cat: Cell) -> None:
+        """A wrong cat becomes a ✕; a correct one crosses out the cells it rules out (R8.9)."""
+        if not self.solve_result.solutions:
+            return  # no solution to judge against
+        if cat not in self.solve_result.solutions[0].cats:
+            self.state = self.state.with_mark(cat, Mark.CROSS)
+            self.message = f"No cat at {describe_cell(cat)}, so it's marked ✕."
+            return
+        self.state = self.state.with_crosses(
+            cell for cell in crossed_out_by(self.puzzle, cat) if self.state.is_open(cell)
+        )
+
     def hint(self) -> None:
-        """Highlight the next hint and explain it. Never changes the marks (R8.5)."""
+        """Highlight the next hint and explain it, or hide it if it's showing (R8.5).
+
+        Never changes the marks.
+        """
+        if self.hint_shown:
+            self._clear_feedback()
+            return
         hint = next_hint(self.puzzle, self.state)
-        self._clear()
+        self._clear_feedback()
         self.message = name_regions(hint.message, self.region_phrases)
         self.highlight = hint.focus
+        self.hint_shown = True
         if hint.kind in (HintKind.RULE_BROKEN, HintKind.MISTAKE):
             self.highlight_style = Highlight.PROBLEM
         elif hint.focus:
@@ -134,7 +178,7 @@ class GameSession:
 
     def check(self) -> None:
         """Highlight cats that break a rule. Missing cats aren't counted on a board in progress."""
-        self._clear()
+        self._clear_feedback()
         if self.is_solved:
             self.message = SOLVED_MESSAGE
             return
@@ -148,9 +192,15 @@ class GameSession:
         self.message = f"{count_of(len(conflicts), 'problem')}: {first}."
 
     def solve(self) -> None:
-        """Show a solution on top of the board without changing the player's marks."""
-        result = solve(self.puzzle)
-        self._clear()
+        """Show a solution over the player's marks, or hide it if it's showing (R8.5).
+
+        Never changes the marks, so the player keeps playing from where they were.
+        """
+        self._clear_feedback()
+        if self.revealed:
+            self.revealed = frozenset()
+            return
+        result = self.solve_result
         if result.status is SolveStatus.NONE:
             self.message = "This puzzle has no solution."
             return
@@ -162,10 +212,12 @@ class GameSession:
 
     def reset(self) -> None:
         self.state = BoardState.empty(self.puzzle.size)
-        self._clear()
+        self.revealed = frozenset()
+        self._clear_feedback()
 
-    def _clear(self) -> None:
+    def _clear_feedback(self) -> None:
+        """Hide a hint or Check result and its message. A shown solution stays."""
         self.highlight = frozenset()
         self.highlight_style = None
-        self.revealed = frozenset()
+        self.hint_shown = False
         self.message = ""

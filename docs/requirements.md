@@ -99,7 +99,8 @@ reported together in `.problems`.
   points at the conflicting cells. If no solution matches the state, the hint
   says the board has a mistake and, when the puzzle has a unique solution,
   points at the first wrong mark in row-major order.
-- **R7.6** Hints never reveal the solution. If no deduction rule applies, the
+- **R7.6** Hints never reveal the solution (the GUI's cat check, R8.9, is
+  separate). If no deduction rule applies, the
   hint says "No simple step found; try Solve." If the puzzle itself has no
   solution, the hint says so.
 - **R7.7** Deduction rules must be sound: a hint never contradicts the
@@ -128,14 +129,24 @@ reported together in `.problems`.
 - **R8.4** Clicking a cell cycles it: empty → ✕ → cat → empty.
 - **R8.5** Controls: **Open** (a screenshot), **Hint**
   (highlights the hint's cells and shows its reason; it never places marks,
-  so the player makes the move), **Check** (highlights rule violations), **Solve** (shows a solution,
-  noting when there are several or none), and **Reset**.
+  so the player makes the move; pressing Hint again hides it), **Check**
+  (highlights rule violations), **Solve** (shows a solution over the
+  player's marks without changing them, noting when there are several or
+  none; it stays while the player keeps clicking, and pressing Solve again
+  hides it), and **Reset**. (Hint and Solve toggling added at the owner's
+  request.)
 - **R8.6** When the board is a complete valid solution, the window shows
   "Solved!".
 - **R8.7** The GUI contains no game logic. Rules, hints, and solving live in
   modules that are testable without a display.
 - **R8.8** Errors (invalid puzzle, unreadable screenshot) are shown in a
   dialog, never as a traceback.
+- **R8.9** A cat the player places by clicking is checked against the
+  puzzle's first solution (the one Solve shows). A wrong cat turns into a
+  plain ✕, with a message saying so. A correct cat stays, and every
+  empty cell in its row, its column, its color region, and the cells touching
+  it gets a ✕. Cats from a screenshot aren't checked, and nothing is checked
+  when the puzzle has no solution. (Added at the owner's request.)
 
 ## R9 Screenshot import
 

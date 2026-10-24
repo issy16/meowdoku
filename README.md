@@ -89,11 +89,16 @@ loads a screenshot. The board keeps the game's own region colors and starts
 with the cats and ✕ marks from the screenshot.
 
 - Click a cell to cycle it: empty → ✕ → cat → empty.
+- When you place a cat, it's checked against the solution. A wrong cat turns
+  into a ✕. A correct cat stays and fills in
+  ✕ marks for you: its row, its column, its color region, and the cells
+  touching it.
 - **Hint** highlights the cells behind the next logical step (orange) and
   explains it below the board, naming regions by color ("the pink region"). It never places marks for you. Wrong marks and
-  broken rules are outlined in red instead.
+  broken rules are outlined in red instead. Press Hint again to hide it.
 - **Check** outlines cats that break a rule in red.
-- **Solve** shows a solution in gray without changing your marks.
+- **Solve** shows a solution in gray without changing your marks. It stays
+  while you keep playing; press Solve again to hide it.
 - **Reset** clears the board. "Solved!" appears when you finish.
 
 ## Sharing as a Mac app
