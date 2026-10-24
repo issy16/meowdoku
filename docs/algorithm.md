@@ -180,8 +180,12 @@ opened.
    corners. Tile pixels are those that differ by more than 40 in some color
    channel from white, the page color, and the window's two ring colors.
    Rows where at least 30% of the
-   pixels are tile pixels form horizontal bands; gaps of up to 2% of the image
-   width (the white gaps between tile rows) are bridged. Headers, icons,
+   pixels are tile pixels form horizontal bands. Weaker rows (at least 4%)
+   between two such rows join them, since they cross tiles covered by cat
+   faces and ✕ marks rather than a white gap; this keeps a board whole when
+   it fills only part of the image width, as in a wide window screenshot.
+   Gaps that are small next to the runs on both sides (the white gaps
+   between tile rows) are bridged. Headers, icons,
    buttons, and ad banners make short, wide bands. The board is the largest
    band whose colored area is square. Within a band, columns are banded the
    same way and the widest column band is the board, so tile-colored pixels

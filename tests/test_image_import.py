@@ -342,3 +342,18 @@ def test_r6_5_cli_prints_detected_marks(tmp_path: Path, capsys: pytest.CaptureFi
     main([str(save(draw_screenshot(EXAMPLE, marks=marks), tmp_path / "b.png"))])
     out = capsys.readouterr().out
     assert "Detected marks (* cat, x cross):\n....*\nx....\n.....\n.....\n.....\n" in out
+
+
+def test_r9_6_board_in_a_wide_image_with_a_row_full_of_marks(tmp_path: Path) -> None:
+    """In a wide window screenshot the board is a small share of each pixel row.
+
+    Rows through a tile row full of cat faces and ✕ marks then fall below the
+    usual coverage, but they aren't empty like a gap, so the board stays whole.
+    """
+    marks = {(2, col): "cat" if col % 2 == 0 else "cross" for col in range(5)}
+    board = draw_screenshot(EXAMPLE, cell=90, origin=(30, 30), marks=marks)
+    image = Image.new("RGB", (board.width * 2, board.height), "#f6f2ef")  # board at half the width
+    image.paste(board, (board.width // 2, 0))
+    imported = import_screenshot(save(image, tmp_path / "wide.png"))
+    assert imported.puzzle == EXAMPLE
+    assert_marks(imported, marks)

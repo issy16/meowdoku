@@ -35,6 +35,9 @@ WHITE = (255, 255, 255)
 TILE_CONTRAST = 40  # channel difference that separates a tile from white or the page
 SQUARE_TOLERANCE = 0.1  # allowed width/height mismatch of the board
 MIN_ROW_COVERAGE = 0.3  # share of a row that is tiles, for a row through the board
+# A weaker row between two such rows still crosses the board if it's at least this covered:
+# it runs through marked tiles, while a gap between tiles is white
+WEAK_ROW_COVERAGE = 0.04
 BRIDGE_SHARE = 0.3  # bridge a gap at most this share of the row runs on both sides
 GAP_COVERAGE = 0.25  # a pixel column (or row) this little covered by tiles is a gap
 CELL_INSET = 0.08  # skip this share of each cell edge: the white gap around the tile
@@ -49,7 +52,7 @@ SOLUTION_CAT_SHARE = 0.15
 CROSS_SHARE = 0.12  # this much white in the middle of a tile means a ✕
 COLOR_BIN = 12  # colors closer than this per channel count as the same color
 COLOR_TOLERANCE = 28  # max RGB distance between cells of one region
-# The window's Hint (orange) and Check (red) rings, as in gui.HIGHLIGHT_COLORS; no tile color is near them
+# The window's hint (orange) and problem (red) rings, as in gui.HIGHLIGHT_COLORS; no tile color is near them
 HIGHLIGHT_RING_COLORS: tuple[RGB, ...] = ((0xF5, 0xA7, 0x00), (0xD6, 0x28, 0x28))
 
 
@@ -148,7 +151,7 @@ def tile_mask(image: Image.Image) -> Image.Image:
     """A mask of tile pixels: far from white, the page color, and the window's ring colors.
 
     White gaps, white ✕ marks, and the white parts of cat faces are not
-    tiles, and neither are the window's Hint and Check rings, which lie in
+    tiles, and neither are the window's hint and problem rings, which lie in
     the gaps around tiles.
     """
     mask = _darker(_far_from(image, WHITE), _far_from(image, _page_color(image)))
@@ -169,12 +172,31 @@ def find_board(tiles: Image.Image) -> Box:
         raise ImageImportError("couldn't find the board: no colored tiles were found")
     height = tiles.height
     coverage = tiles.resize((1, height), Image.Resampling.BOX).tobytes()
-    tile_rows = [y for y in range(height) if coverage[y] >= MIN_ROW_COVERAGE * 255]
-    bands = _bridge_small_gaps(_consecutive_groups(tile_rows, 2))
+    bands = _bridge_small_gaps(_tile_runs(coverage))
     boards = [box for top, bottom in bands if (box := _square_box(tiles, top, bottom))]
     if not boards:
         raise ImageImportError("couldn't find the board: no square grid of colored tiles was found")
     return max(boards, key=lambda box: box.width * box.height)
+
+
+def _tile_runs(coverage: bytes) -> list[list[int]]:
+    """Runs of pixel lines (rows or columns) that cross tiles, from each line's tile coverage.
+
+    A line belongs to a run when at least MIN_ROW_COVERAGE of it is tiles.
+    Weaker lines between two runs join them when none of those lines is
+    nearly empty: they cross tiles covered by marks (a row of cat faces and
+    ✕ marks), not the white gap between tiles. This matters when the board
+    fills only part of the image width, as in a wide window screenshot.
+    """
+    strong = _consecutive_groups([i for i, value in enumerate(coverage) if value >= MIN_ROW_COVERAGE * 255], 2)
+    runs: list[list[int]] = []
+    for run in strong:
+        between = range(runs[-1][-1] + 1, run[0]) if runs else range(0)
+        if runs and all(coverage[i] >= WEAK_ROW_COVERAGE * 255 for i in between):
+            runs[-1] = runs[-1] + list(between) + run
+        else:
+            runs.append(run)
+    return runs
 
 
 def _bridge_small_gaps(runs: list[list[int]]) -> list[tuple[int, int]]:
@@ -207,8 +229,7 @@ def _square_box(tiles: Image.Image, top: int, bottom: int) -> Box | None:
     """
     band = tiles.crop((0, top, tiles.width, bottom))
     coverage = band.resize((tiles.width, 1), Image.Resampling.BOX).tobytes()
-    tile_columns = [x for x in range(tiles.width) if coverage[x] >= MIN_ROW_COVERAGE * 255]
-    column_bands = _bridge_small_gaps(_consecutive_groups(tile_columns, 2))
+    column_bands = _bridge_small_gaps(_tile_runs(coverage))
     if not column_bands:
         return None
     left, right = max(column_bands, key=lambda column_band: column_band[1] - column_band[0])
