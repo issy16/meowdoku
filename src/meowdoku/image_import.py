@@ -1,8 +1,12 @@
 """Read a puzzle, and any cats and ✕ marks, from a Meowdoku screenshot (R9).
 
-The game draws the board as rounded colored tiles with white gaps, on a white
-card on a plain page. A ✕ is a thick white X on a tile; a cat is a black and
-white cat face covering most of a tile (see tests/fixtures/screenshots/).
+Two kinds of screenshot are read (R9.6): the Meowdoku game's, and this
+program's own window (gui.py). Both draw the board as rounded colored tiles
+with white gaps, on a white card on a plain page, and a ✕ as a thick white X
+on a tile. A cat covers most of a tile: in the game, a black and white cat
+face; in the window, a white lucky cat face with dark outlines. The window
+also shows Solve's answer as gray-outlined cats; those aren't the player's
+marks, so they read as empty (see tests/fixtures/screenshots/).
 
 Pipeline (docs/algorithm.md): find the tiles, count them, read each tile's
 color, group colors into regions, and read the mark on each tile.
@@ -11,6 +15,7 @@ Uses Pillow, the project's one runtime dependency (NFR1).
 """
 
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import median
@@ -23,6 +28,9 @@ from meowdoku.state import Mark
 
 IMAGE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg"})
 
+RGB = tuple[int, int, int]
+LabelGrid = list[list[str]]
+
 WHITE = (255, 255, 255)
 TILE_CONTRAST = 40  # channel difference that separates a tile from white or the page
 SQUARE_TOLERANCE = 0.1  # allowed width/height mismatch of the board
@@ -32,15 +40,18 @@ GAP_COVERAGE = 0.25  # a pixel column (or row) this little covered by tiles is a
 CELL_INSET = 0.08  # skip this share of each cell edge: the white gap around the tile
 CELL_SAMPLES = 16  # color samples per cell, per direction
 WHITE_MIN = 225  # every channel above this: white (gaps, ✕ marks, cat faces)
-BLACK_MAX = 80  # every channel below this: black (cat fur)
+BLACK_MAX = 80  # every channel below this: black (cat fur and outlines)
+GRAY_SPREAD = 10  # channels at most this far apart, between black and white: neutral gray
 MARK_AREA = (0.25, 0.75)  # the middle of a tile, where marks are read
 CAT_SHARE = 0.12  # this much black in the middle of a tile means a cat
+# This much gray means a Solve cat in the window (measured 0.27 or more; ✕ marks 0.05 or less)
+SOLUTION_CAT_SHARE = 0.15
 CROSS_SHARE = 0.12  # this much white in the middle of a tile means a ✕
 COLOR_BIN = 12  # colors closer than this per channel count as the same color
 COLOR_TOLERANCE = 28  # max RGB distance between cells of one region
+# The window's Hint (orange) and Check (red) rings, as in gui.HIGHLIGHT_COLORS; no tile color is near them
+HIGHLIGHT_RING_COLORS: tuple[RGB, ...] = ((0xF5, 0xA7, 0x00), (0xD6, 0x28, 0x28))
 
-RGB = tuple[int, int, int]
-LabelGrid = list[list[str]]
 
 
 class ImageImportError(MeowdokuError):
@@ -116,8 +127,15 @@ def import_screenshot(path: Path) -> ImportedPuzzle:
 
 
 def _open_image(path: Path) -> Image.Image:
+    """Open the image as RGB, laying any transparency over white.
+
+    A macOS window screenshot is transparent around the window's shadow.
+    """
     try:
         with Image.open(path) as image:
+            if image.mode in ("RGBA", "LA", "P"):
+                rgba = image.convert("RGBA")
+                return Image.alpha_composite(Image.new("RGBA", rgba.size, WHITE), rgba).convert("RGB")
             return image.convert("RGB")
     except UnidentifiedImageError:
         raise ImageImportError(f"{path.name} is not a readable PNG or JPEG image") from None
@@ -127,12 +145,16 @@ def _open_image(path: Path) -> Image.Image:
 
 
 def tile_mask(image: Image.Image) -> Image.Image:
-    """A mask of tile pixels: far from both white and the page color.
+    """A mask of tile pixels: far from white, the page color, and the window's ring colors.
 
-    White gaps, white ✕ marks, and the white parts of cat faces are not tiles.
+    White gaps, white ✕ marks, and the white parts of cat faces are not
+    tiles, and neither are the window's Hint and Check rings, which lie in
+    the gaps around tiles.
     """
-    background = _page_color(image)
-    return _darker(_far_from(image, WHITE), _far_from(image, background))
+    mask = _darker(_far_from(image, WHITE), _far_from(image, _page_color(image)))
+    for ring in HIGHLIGHT_RING_COLORS:
+        mask = _darker(mask, _far_from(image, ring))
+    return mask
 
 
 def find_board(tiles: Image.Image) -> Box:
@@ -178,12 +200,23 @@ def _bridge_small_gaps(runs: list[list[int]]) -> list[tuple[int, int]]:
 
 
 def _square_box(tiles: Image.Image, top: int, bottom: int) -> Box | None:
-    """The box around the tile pixels between two rows, if it is square."""
-    extent = tiles.crop((0, top, tiles.width, bottom)).getbbox()
+    """The box around the board's tiles between two rows, if it is square.
+
+    Columns are banded like rows, and the widest band is the board, so tile
+    pixels off to the side (a window's shadow, say) don't widen it.
+    """
+    band = tiles.crop((0, top, tiles.width, bottom))
+    coverage = band.resize((tiles.width, 1), Image.Resampling.BOX).tobytes()
+    tile_columns = [x for x in range(tiles.width) if coverage[x] >= MIN_ROW_COVERAGE * 255]
+    column_bands = _bridge_small_gaps(_consecutive_groups(tile_columns, 2))
+    if not column_bands:
+        return None
+    left, right = max(column_bands, key=lambda column_band: column_band[1] - column_band[0])
+    extent = tiles.crop((left, top, right, bottom)).getbbox()
     if extent is None:
         return None
-    left, band_top, right, band_bottom = extent
-    box = Box(left, top + band_top, right, top + band_bottom)
+    band_left, band_top, band_right, band_bottom = extent
+    box = Box(left + band_left, top + band_top, left + band_right, top + band_bottom)
     if abs(box.width - box.height) > SQUARE_TOLERANCE * max(box.width, box.height):
         return None
     return box
@@ -281,15 +314,16 @@ def _samples(image: Image.Image, box: Box, start: float, end: float, count: int)
 
 
 def cell_color(image: Image.Image, box: Box) -> RGB:
-    """The tile's color: the most common color that isn't white or black.
+    """The tile's color: the most common color that isn't white, black, or gray.
 
-    White (gaps, ✕ marks, cat faces) and black (cat fur) are skipped, so the
-    tile color still wins on tiles with marks.
+    White (gaps, ✕ marks, cat faces), black (cat fur and outlines), and
+    neutral gray (the outlines of Solve's cats in the window) are skipped, so
+    the tile color still wins on tiles with marks.
     """
     samples = [
         color
         for color in _samples(image, box, CELL_INSET, 1 - CELL_INSET, CELL_SAMPLES)
-        if not _is_white(color) and not _is_black(color)
+        if not _is_white(color) and not _is_black(color) and not _is_gray(color)
     ]
     if not samples:
         raise ImageImportError("couldn't read a tile's color: it is all white or black")
@@ -304,6 +338,11 @@ def _is_white(color: RGB) -> bool:
 
 def _is_black(color: RGB) -> bool:
     return max(color) < BLACK_MAX
+
+
+def _is_gray(color: RGB) -> bool:
+    """A neutral gray between black and white: all channels nearly equal."""
+    return max(color) - min(color) <= GRAY_SPREAD and not _is_white(color) and not _is_black(color)
 
 
 def _color_bin(color: RGB) -> RGB:
@@ -376,14 +415,20 @@ def _to_hex(color: RGB) -> str:
 def read_mark(image: Image.Image, box: Box) -> Mark | None:
     """Read the mark in the middle of a tile.
 
-    Black there means a cat (its fur); white there means a ✕. A tile with too
-    little of either is left empty rather than guessed.
+    Black there means a cat: the game cat's fur, or the window cat's outlines
+    and eyes. Neutral gray means one of Solve's cats in the window, which
+    isn't the player's mark. Otherwise white means a ✕. A tile with too little
+    of any is left empty rather than guessed.
     """
     samples = _samples(image, box, *MARK_AREA, CELL_SAMPLES)
-    black = sum(_is_black(color) for color in samples) / len(samples)
-    white = sum(_is_white(color) for color in samples) / len(samples)
-    if black >= CAT_SHARE:
+
+    def share(test: Callable[[RGB], bool]) -> float:
+        return sum(test(color) for color in samples) / len(samples)
+
+    if share(_is_black) >= CAT_SHARE:
         return Mark.CAT
-    if white >= CROSS_SHARE:
+    if share(_is_gray) >= SOLUTION_CAT_SHARE:
+        return None
+    if share(_is_white) >= CROSS_SHARE:
         return Mark.CROSS
     return None

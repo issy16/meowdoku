@@ -169,14 +169,24 @@ lines and no region borders: regions are shown only by tile color.
 a tile; a cat is a black and white cat face covering most of a tile, with
 the tile color still visible around it (`IMG_7117.PNG`).
 
+This program's own window (R9.6, `gui-*` fixtures) draws the same kind of
+board, with a lucky cat face (white, dark outlines) for a cat. It also
+shows Solve's answer as gray-outlined cats, and Hint and Check rings in the
+gaps around tiles. A whole-window screenshot adds a title bar and, from
+macOS, a transparent shadow, which is laid over white when the image is
+opened.
+
 1. **Find the board (`find_board`).** Read the page color from the image
    corners. Tile pixels are those that differ by more than 40 in some color
-   channel from both white and the page color. Rows where at least 30% of the
+   channel from white, the page color, and the window's two ring colors.
+   Rows where at least 30% of the
    pixels are tile pixels form horizontal bands; gaps of up to 2% of the image
    width (the white gaps between tile rows) are bridged. Headers, icons,
    buttons, and ad banners make short, wide bands. The board is the largest
-   band whose colored area is square. This works on full, uncropped phone
-   screenshots.
+   band whose colored area is square. Within a band, columns are banded the
+   same way and the widest column band is the board, so tile-colored pixels
+   off to the side (a window's shadow) don't widen it. This works on full,
+   uncropped phone screenshots and whole-window screenshots.
 2. **Count the cells (`count_cells`).** For every pixel column (and row) of
    the board, measure what share is tile pixels. A gap between tiles is white
    along the whole board, so its share is near zero (below 25%). A ✕ or a cat
@@ -184,8 +194,10 @@ the tile color still visible around it (`IMG_7117.PNG`).
    covered even when every tile has a mark. The median spacing between gaps
    gives N, which must agree in both directions.
 3. **Read cell colors (`cell_color`).** Sample a 16×16 grid over each tile
-   and skip white pixels (gaps, ✕ marks, cat faces) and black ones (cat
-   fur). The most common remaining color is the tile's color.
+   and skip white pixels (gaps, ✕ marks, cat faces), black ones (cat fur,
+   outlines), and neutral grays (channels within 10 of each other: the
+   outlines of Solve's cats). The most common remaining color is the tile's
+   color.
 4. **Group colors into regions (`group_colors`).** Join cells whose colors
    are within RGB distance 28, in chains. The real game's 10 colors are at
    least 64 apart. There must be exactly N groups, otherwise raise
@@ -193,15 +205,20 @@ the tile color still visible around it (`IMG_7117.PNG`).
    `A`, `B`, … in row-major order of first appearance, then pass the text
    grid to the normal parser, which validates it (R4).
 5. **Read the marks (`read_mark`).** Sample the middle of each tile (25–75%).
-   At least 12% black means a cat; otherwise at least 12% white means a ✕;
-   otherwise the tile is empty (R9.1a). On `IMG_7117.PNG` the measurements
-   are far from the 12% thresholds:
+   At least 12% black means a cat; otherwise at least 15% neutral gray means
+   one of Solve's cats, which reads as empty; otherwise at least 12% white
+   means a ✕; otherwise the tile is empty (R9.1a). On `IMG_7117.PNG` the
+   measurements are far from the 12% thresholds:
 
    | Tile | Black | White |
    |---|---|---|
    | Cats (5) | 43–46% | 23–26% |
    | ✕ (75) | 0% | 49–57% |
    | Empty (20) | 0% | 0% |
+
+   In window screenshots, lucky cats measured 20–30% black, ✕ marks 0%
+   black, and Solve's cats 27–37% neutral gray against at most 5% for ✕
+   marks.
 
 **History.** The first version (Milestone 8) guessed at a board with a dark
 frame, grid lines, and thick region borders. The real screenshot has none of

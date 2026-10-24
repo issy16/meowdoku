@@ -168,6 +168,14 @@ reported together in `.problems`.
   "found 6 region colors; expected 7".
 - **R9.5** Supported screenshot layouts are defined by the sample screenshots
   in `tests/fixtures/screenshots/`, each with a hand-checked expected grid.
+- **R9.6** Screenshots of this program's own window (R8) can be imported
+  too, whole-window screenshots included (a macOS window screenshot's
+  transparent shadow is laid over white). The lucky cat faces are read as
+  cats and ✕ marks as ✕. Solve's gray cats aren't the player's marks, so
+  they read as empty, as does a ✕ hidden under one. Hint and Check rings
+  don't affect reading. The window's palette keeps its colors far enough
+  apart to import cleanly. The `gui-*` fixtures come from
+  `tests/capture_window_screenshots.py`. (Added at the owner's request.)
 
 ## R10 Mac app for sharing
 

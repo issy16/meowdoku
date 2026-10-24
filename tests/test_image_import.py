@@ -7,8 +7,11 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 
+from meowdoku.game import PALETTE
+from meowdoku.gui import HIGHLIGHT_COLORS
 from meowdoku.image_import import (
     COLOR_TOLERANCE,
+    HIGHLIGHT_RING_COLORS,
     ImageImportError,
     ImportedPuzzle,
     import_screenshot,
@@ -227,6 +230,38 @@ def test_is_image_path() -> None:
     assert is_image_path(Path("a.PNG"))
     assert is_image_path(Path("b.jpeg"))
     assert not is_image_path(Path("c.txt"))
+
+
+# R9.6 Screenshots of this program's window. The gui-* fixtures come from
+# tests/capture_window_screenshots.py and are checked by test_r9_5_real_screenshots.
+
+
+def test_r9_6_window_palette_colors_stay_apart() -> None:
+    """Every two window colors are farther apart than import merges, with room to spare."""
+    closest = min(color_distance(a, b) for a, b in itertools.combinations(PALETTE, 2))
+    assert closest > 2 * COLOR_TOLERANCE
+
+
+def test_r9_6_ring_colors_match_the_window() -> None:
+    assert {hex_to_rgb(color) for color in HIGHLIGHT_COLORS.values()} == set(HIGHLIGHT_RING_COLORS)
+
+
+def test_r9_6_no_tile_color_is_mistaken_for_a_ring() -> None:
+    """Rings are left out of the tile mask, so no tile may come within its contrast of a ring."""
+    for color in PALETTE:
+        for ring in HIGHLIGHT_RING_COLORS:
+            assert max(abs(a - b) for a, b in zip(hex_to_rgb(color), ring)) > 40, color
+
+
+def test_r9_6_transparent_window_shadow_is_laid_over_white(tmp_path: Path) -> None:
+    """A macOS window screenshot: the board inside a transparent margin with a soft shadow."""
+    board = draw_screenshot(EXAMPLE).convert("RGBA")
+    image = Image.new("RGBA", (board.width + 120, board.height + 120), (0, 0, 0, 0))
+    shadow = Image.new("RGBA", board.size, (0, 0, 0, 90))
+    image.alpha_composite(shadow, (70, 75))
+    image.alpha_composite(board, (60, 60))
+    imported = import_screenshot(save(image, tmp_path / "window.png"))
+    assert imported.puzzle == EXAMPLE
 
 
 # R9.5 Real screenshots: each image needs a .txt file beside it with the expected

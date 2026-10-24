@@ -17,7 +17,11 @@ NAMED_COLORS: tuple[tuple[str, str], ...] = (
     ("purple", "#877ad4"),
     ("dark green", "#488b58"),
     ("rose", "#c77490"),
-    # Softer colors; some are also extra colors in the GUI palette (game.PALETTE)
+    # The extra colors of the GUI palette (game.PALETTE) not named elsewhere here
+    ("cyan", "#00bcd4"),
+    ("maroon", "#8e2430"),
+    ("lime", "#aeea00"),
+    # Softer colors
     ("red", "#f4a7a3"),
     ("green", "#a8d5ba"),
     ("blue", "#a7c7f4"),

@@ -23,8 +23,9 @@ EXAMPLE_PUZZLE = "AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"
 
 # At least MAX_SIZE (16) colors (R8.3). The first ten are the real game's tile
 # colors (measured from tests/fixtures/screenshots/IMG_7128.jpg), so text
-# puzzles look like the game; the rest are extra colors for bigger boards.
-# The comments are the names hints use for them (colors.NAMED_COLORS).
+# puzzles look like the game; the rest are extra colors for bigger boards,
+# chosen far from all the others so screenshots of the window import cleanly
+# (R9.6). The comments are the names hints use for them (colors.NAMED_COLORS).
 PALETTE = (
     "#9dd387",  # light green
     "#eb9fe0",  # pink
@@ -36,12 +37,12 @@ PALETTE = (
     "#c77490",  # rose
     "#c7a635",  # mustard
     "#488b58",  # dark green
-    "#9fdcdc",  # teal
-    "#e0e48f",  # lime
-    "#bfc9d9",  # gray
-    "#8fc1e3",  # sky blue
-    "#e8a0a0",  # coral
-    "#d9b99b",  # tan
+    "#283593",  # navy
+    "#00897b",  # teal
+    "#e040fb",  # magenta
+    "#00bcd4",  # cyan
+    "#8e2430",  # maroon
+    "#aeea00",  # lime
 )
 
 SOLVED_MESSAGE = "Solved!"

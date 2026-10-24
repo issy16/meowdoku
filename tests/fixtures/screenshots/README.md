@@ -1,4 +1,9 @@
-# Real screenshots for import tests (R9.5)
+# Real screenshots for import tests (R9.5, R9.6)
+
+`IMG_*` files are screenshots of the Meowdoku game. `gui-*` files are
+screenshots of this program's own window, with their `.txt` and `.marks`
+files, made by `python tests/capture_window_screenshots.py`; remake them
+when the window's look changes.
 
 Put Meowdoku screenshots here, each with a text file of the same name that
 holds the expected grid:
