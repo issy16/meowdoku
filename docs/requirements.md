@@ -132,27 +132,68 @@ reported together in `.problems`.
 - **R8.3** Puzzles imported from a screenshot keep their original region
   colors. Text puzzles use a built-in palette of at least 16 distinguishable
   colors, assigned in order of each region's first appearance (row-major).
-- **R8.4** Clicking a cell cycles it: empty → ✕ → cat → empty.
+- **R8.4** Clicking a cell toggles it between empty and ✕, and clears a cat.
+  Double-clicking a cell places a cat there, whatever it held. A correct cat
+  (one in the first solution, R8.9) is locked: clicking or double-clicking it
+  does nothing. (Changed at the owner's request from a click cycle
+  empty → ✕ → cat → empty, which could no longer clear a ✕ once cats were
+  judged; locking also added at the owner's request.)
 - **R8.5** Controls: **Open** (a screenshot), **Hint**
-  (highlights the hint's cells and shows its reason; it never places marks,
-  so the player makes the move; pressing Hint again hides it), **Check**
-  (highlights rule violations), **Solve** (shows a solution over the
-  player's marks without changing them, noting when there are several or
-  none; it stays while the player keeps clicking, and pressing Solve again
-  hides it), and **Reset**. (Hint and Solve toggling added at the owner's
-  request.)
-- **R8.6** When the board is a complete valid solution, the window shows
-  "Solved!".
+  (highlights the hint's cells and shows its reason; it never places marks by
+  itself, but its Apply? link makes the move when clicked, R8.11; pressing
+  Hint again hides it), **Step by Step** (R8.12), **Solve** (shows a solution over the
+  player's marks without changing them, with no message unless there is no
+  solution; it stays while the player keeps clicking, and pressing Solve
+  again hides it), and **Reset**. (Hint and Solve toggling, Solve without a
+  message, and Step by Step in place of Check, at the owner's request; Hint
+  still points out broken rules.)
+- **R8.6** The move that completes the board as a valid solution shows a
+  pop-up over the board: a clean rounded white card with a soft shadow,
+  "Puzzle solved!", "Well done!", and a rounded OK button, with no icon. It
+  is drawn in the window rather than as a macOS alert. A click anywhere,
+  Return, Escape, or the next action closes it, and that click doesn't change
+  the board. Nothing else says "Solved!". (Pop-up, its look, and dropping the
+  "Solved!" line at the owner's request.)
 - **R8.7** The GUI contains no game logic. Rules, hints, and solving live in
   modules that are testable without a display.
 - **R8.8** Errors (invalid puzzle, unreadable screenshot) are shown in a
   dialog, never as a traceback.
-- **R8.9** A cat the player places by clicking is checked against the
+- **R8.9** A cat the player places by double-clicking is checked against the
   puzzle's first solution (the one Solve shows). A wrong cat turns into a
-  plain ✕, with a message saying so. A correct cat stays, and every
+  plain ✕ and its cell shakes briefly, with no message. A correct cat stays,
+  and every
   empty cell in its row, its column, its color region, and the cells touching
   it gets a ✕. Cats from a screenshot aren't checked, and nothing is checked
   when the puzzle has no solution. (Added at the owner's request.)
+- **R8.11** A hint that is a logical step (R7.2, a deduction) ends with an
+  "Apply?" link. Clicking it makes the step's move for the player: a cat,
+  checked like a double-clicked one (R8.9), or ✕ on the cells the step rules
+  out. Then the hint is hidden. Hints about mistakes, broken rules, or no
+  simple step have no link. (Added at the owner's request.)
+- **R8.12** **Step by Step** works like pressing Hint and Apply? over and
+  over. The first press shows step 1 (highlighted, with its reason, numbered
+  "Step 1: …") and the button turns into **Next Step**. Each Next Step makes the shown
+  step's move (R8.11) and shows the next step. Stepping ends when the puzzle
+  is solved (with the pop-up, R8.6) or when no step is left, such as "No
+  simple step found; try Solve." or a mistake; the button then reads Step by
+  Step again. Clicking a cell or another button also ends it. While stepping,
+  the message has no Apply? link. (Added at the owner's request.)
+- **R8.13** **Previous** and **Next** undo and redo the player's moves. A
+  move is a click, a double-clicked cat with the ✕ marks it fills in, a whole
+  drag, an Apply?, a Step by Step step, or Reset; a move that changes no mark
+  isn't recorded. A new move after Previous ends what Next can redo. The
+  buttons are greyed out when there is nothing to undo or redo. Undoing or
+  redoing hides a hint and ends Step by Step; redoing the solving move says
+  "Solved!" without the pop-up. Opening a screenshot starts a new history.
+  While stepping, the Step by Step button reads **Next Step**. (Added at the
+  owner's request.)
+- **R8.10** Pressing on a cell and dragging across others marks or unmarks
+  them, decided by the first cell: from an empty cell, every empty cell
+  passed over gets a ✕; from a ✕, every ✕ passed over is cleared, except
+  ✕ marks that a correct cat on the board rules out (R8.9). Dragging never
+  changes cats, and a drag that begins on a cat does nothing. Cells skipped
+  by a fast drag are filled in along a straight line. A press and release on
+  one cell is a click (R8.4). (Added at the owner's request.)
 
 ## R9 Screenshot import
 
@@ -162,8 +203,9 @@ reported together in `.problems`.
 - **R9.1a** Screenshots may show a game in progress. Cats and ✕ marks are
   read, and the GUI starts from them instead of an empty board; Reset still
   clears them. A tile whose mark is unclear is left empty rather than
-  guessed. The GUI says how many cats and ✕ marks it read, so the player can
-  check them. (Changed at the owner's request; marks were ignored before.)
+  guessed. (Changed at the owner's request; marks were ignored before. The
+  window no longer shows a message after opening a screenshot, also at the
+  owner's request.)
 - **R9.2** It supports PNG and JPEG through Pillow, a regular dependency
   installed with the project.
 - **R9.3** It detects the board's position and size N, samples each cell's
@@ -178,8 +220,8 @@ reported together in `.problems`.
   too, whole-window screenshots included (a macOS window screenshot's
   transparent shadow is laid over white). The lucky cat faces are read as
   cats and ✕ marks as ✕. Solve's gray cats aren't the player's marks, so
-  they read as empty, as does a ✕ hidden under one. Hint and Check rings
-  don't affect reading. The window's palette keeps its colors far enough
+  they read as empty, as does a ✕ hidden under one. Hint rings, orange or
+  red, don't affect reading. The window's palette keeps its colors far enough
   apart to import cleanly. The `gui-*` fixtures come from
   `tests/capture_window_screenshots.py`. (Added at the owner's request.)
 

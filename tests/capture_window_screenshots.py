@@ -58,7 +58,7 @@ def capture(name: str, session: GameSession, setup: Setup = lambda session: None
         path = FIXTURES / name
         with tempfile.TemporaryDirectory() as folder:
             shot = Path(folder) / "window.png"
-            subprocess.run(["screencapture", "-x", "-l", str(_window_id()), str(shot)], check=True)
+            _capture_window(shot)
             image = Image.open(shot)
             if quality:
                 white = Image.new("RGBA", image.size, "white")
@@ -75,8 +75,17 @@ def capture(name: str, session: GameSession, setup: Setup = lambda session: None
         raise failure[0]
 
 
-def _window_id() -> int:
-    """This process's window number, from the macOS window list (CoreGraphics, through ctypes)."""
+def _capture_window(shot: Path) -> None:
+    """Screenshot this process's window. An earlier, closed window may still be listed; it can't be captured."""
+    windows = _window_ids()
+    for window in windows:
+        if subprocess.run(["screencapture", "-x", "-l", str(window), str(shot)]).returncode == 0:
+            return
+    raise SystemExit(f"couldn't capture any of this program's windows: {windows}")
+
+
+def _window_ids() -> list[int]:
+    """This process's window numbers, from the macOS window list (CoreGraphics, through ctypes)."""
     cg = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics")
     cf = ctypes.cdll.LoadLibrary("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
     pointer = ctypes.c_void_p
@@ -100,13 +109,16 @@ def _window_id() -> int:
         return value.value if ref and cf.CFNumberGetValue(ref, int64, ctypes.byref(value)) else None
 
     windows = cg.CGWindowListCopyWindowInfo(on_screen_only, 0)
+    found = []
     for index in range(cf.CFArrayGetCount(windows)):
         info = cf.CFArrayGetValueAtIndex(windows, index)
         if number(info, "kCGWindowOwnerPID") == os.getpid() and number(info, "kCGWindowLayer") == 0:
             window = number(info, "kCGWindowNumber")
             if window is not None:
-                return window
-    raise SystemExit("couldn't find the Meowdoku window on screen")
+                found.append(window)
+    if not found:
+        raise SystemExit("couldn't find the Meowdoku window on screen")
+    return found
 
 
 def _expected_marks(session: GameSession) -> str:
@@ -167,12 +179,11 @@ def crosses_then_solve(seed: int) -> Setup:
 
 
 def click_cats(*cells: Cell) -> Setup:
-    """Place cats by clicking twice, so they're judged: wrong ones become ✕, right ones add ✕ around them."""
+    """Place cats as a double-click does, so they're judged: wrong ones become ✕, right ones add ✕ around them."""
 
     def setup(session: GameSession) -> None:
         for cell in cells:
-            session.click(cell)
-            session.click(cell)
+            session.place_cat(cell)
 
     return setup
 
@@ -183,9 +194,10 @@ def one_cat_one_cross_then_solve(session: GameSession) -> None:
     session.solve()
 
 
-def marks_then_check(session: GameSession) -> None:
+def marks_then_hint(session: GameSession) -> None:
+    """Random marks break a rule, so the hint shows a red problem ring."""
     random_marks(5)(session)
-    session.check()
+    session.hint()
 
 
 def main() -> None:
@@ -194,7 +206,7 @@ def main() -> None:
     capture("gui-IMG_7117-solve.jpg", GameSession.from_screenshot(GAME_SCREENSHOT), crosses_then_solve(1), quality=80)
     capture("gui-16x16.jpg", GameSession(random_puzzle(random.Random(16), 16)), random_marks(16), quality=85)
     capture("gui-16x16-solve.jpg", GameSession(random_puzzle(random.Random(0), 16)), crosses_then_solve(1), quality=85)
-    capture("gui-5x5-check.png", GameSession.from_text(EXAMPLE_PUZZLE), marks_then_check)
+    capture("gui-5x5-problem.png", GameSession.from_text(EXAMPLE_PUZZLE), marks_then_hint)
     capture("gui-5x5-solve.png", GameSession.from_text(EXAMPLE_PUZZLE), one_cat_one_cross_then_solve)
     capture("gui-5x5-play.png", GameSession.from_text(EXAMPLE_PUZZLE), click_cats((0, 0), (2, 0), (1, 3)))
 

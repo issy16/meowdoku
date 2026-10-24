@@ -88,18 +88,28 @@ Without a screenshot, the window opens a built-in example puzzle. **Open…**
 loads a screenshot. The board keeps the game's own region colors and starts
 with the cats and ✕ marks from the screenshot.
 
-- Click a cell to cycle it: empty → ✕ → cat → empty.
-- When you place a cat, it's checked against the solution. A wrong cat turns
-  into a ✕. A correct cat stays and fills in
-  ✕ marks for you: its row, its column, its color region, and the cells
-  touching it.
+- Click a cell to put a ✕ on it or take the ✕ off. Double-click a cell to
+  place a cat.
+- Drag across cells to mark many at once. Starting on an empty cell puts ✕
+  on the empty cells you pass; starting on a ✕ clears the ✕ marks you pass,
+  except the ones a correct cat filled in. Cats are never changed by
+  dragging.
+- When you place a cat, it's checked against the solution. A wrong cat
+  shakes and turns into a ✕. A correct cat stays (clicking it does nothing)
+  and fills in ✕ marks for you: its row, its column, its color region, and
+  the cells touching it.
 - **Hint** highlights the cells behind the next logical step (orange) and
-  explains it below the board, naming regions by color ("the pink region"). It never places marks for you. Wrong marks and
-  broken rules are outlined in red instead. Press Hint again to hide it.
-- **Check** outlines cats that break a rule in red.
+  explains it below the board, naming regions by color ("the pink region"). Wrong marks and
+  broken rules are outlined in red instead. Press Hint again to hide it, or
+  click **Apply?** after the hint to have the move made for you.
+- **Step by Step** shows the next logical step; press **Next Step** to make
+  that move and see the following step, until the puzzle is solved or no
+  simple step is left.
+- **Previous** undoes your last move and **Next** redoes it. A move is a
+  click, a cat, a whole drag, an Apply?, a step, or Reset.
 - **Solve** shows a solution in gray without changing your marks. It stays
   while you keep playing; press Solve again to hide it.
-- **Reset** clears the board. "Solved!" appears when you finish.
+- **Reset** clears the board. When you finish, a card pops up over the board to say so.
 
 ## Sharing as a Mac app
 

@@ -11,11 +11,11 @@ from pathlib import Path
 from typing import Self
 
 from meowdoku.colors import name_regions, region_phrases
-from meowdoku.hints import HintKind, next_hint
+from meowdoku.hints import Hint, HintKind, next_hint
 from meowdoku.image_import import import_screenshot
 from meowdoku.parser import parse_puzzle
-from meowdoku.puzzle import Cell, Puzzle, count_of, describe_cell
-from meowdoku.rules import find_conflicts, is_valid_solution
+from meowdoku.puzzle import Cell, Puzzle
+from meowdoku.rules import is_valid_solution
 from meowdoku.solver import SolveResult, SolveStatus, solve
 from meowdoku.state import BoardState, Mark
 
@@ -45,16 +45,6 @@ PALETTE = (
     "#aeea00",  # lime
 )
 
-SOLVED_MESSAGE = "Solved!"
-IMPORTED_MESSAGE = "Read from the screenshot. Check that the board matches your game."
-
-
-def imported_message(cats: int, crosses: int) -> str:
-    """What the window says after opening a screenshot (R9.1a)."""
-    if not cats and not crosses:
-        return IMPORTED_MESSAGE
-    marks = f"{count_of(cats, 'cat')} and {count_of(crosses, '✕ mark')}"
-    return f"Read from the screenshot, with {marks}. Check that the board matches your game."
 
 
 class Highlight(Enum):
@@ -62,13 +52,16 @@ class Highlight(Enum):
     PROBLEM = "problem"
 
 
+class Paint(Enum):
+    """What dragging across cells does, set by the cell where the drag began (R8.10)."""
+
+    MARK = "mark"  # began on an empty cell: put ✕ on empty cells
+    UNMARK = "unmark"  # began on a ✕: clear ✕ marks, except those a correct cat rules out
+
+
 def next_mark(mark: Mark | None) -> Mark | None:
-    """Clicking cycles a cell: empty → ✕ → cat → empty (R8.4). A wrong cat becomes ✕ (R8.9)."""
-    if mark is None:
-        return Mark.CROSS
-    if mark is Mark.CROSS:
-        return Mark.CAT
-    return None
+    """A click toggles a cell between empty and ✕, and clears a cat (R8.4). Cats come from double-clicks."""
+    return Mark.CROSS if mark is None else None
 
 
 def default_region_colors(puzzle: Puzzle) -> dict[str, str]:
@@ -98,8 +91,24 @@ class GameSession:
     highlight: frozenset[Cell] = field(init=False, default=frozenset())
     highlight_style: Highlight | None = field(init=False, default=None)
     hint_shown: bool = field(init=False, default=False)
+    applicable: Hint | None = field(init=False, default=None)
+    """The shown hint, when it's a logical step that Apply can make for the player (R8.11)."""
+    stepping: bool = field(init=False, default=False)
+    """True during Step by Step while a step is shown; the window's button then reads Next (R8.12)."""
+    step_number: int = field(init=False, default=0)
+    undo_states: list[BoardState] = field(init=False, default_factory=list)
+    """The marks before each of the player's moves, latest last; Previous goes back to them (R8.13)."""
+    redo_states: list[BoardState] = field(init=False, default_factory=list)
+    """Marks that Previous undid, latest last; Next brings them back (R8.13)."""
+    _paint_start: BoardState | None = field(init=False, default=None)
     revealed: frozenset[Cell] = field(init=False, default=frozenset())
     message: str = field(init=False, default="")
+    shake: Cell | None = field(init=False, default=None)
+    """The cell where the last click put a wrong cat; the window shakes it (R8.9)."""
+    just_solved: bool = field(init=False, default=False)
+    """True right after a click completes the puzzle; the window shows a pop-up (R8.6)."""
+    painting: Paint | None = field(init=False, default=None)
+    """What the current drag does, or None when not dragging or when it began on a cat (R8.10)."""
 
     def __post_init__(self) -> None:
         if not self.colors:
@@ -121,7 +130,6 @@ class GameSession:
         imported = import_screenshot(path)
         session = cls(imported.puzzle, imported.colors)
         session.state = BoardState(imported.puzzle.size, imported.cats, imported.crosses)
-        session.message = imported_message(len(imported.cats), len(imported.crosses))
         return session
 
     @property
@@ -133,27 +141,77 @@ class GameSession:
         """Solved once per puzzle: Solve shows its first solution, and placed cats are judged against it."""
         return solve(self.puzzle)
 
-    def click(self, cell: Cell) -> None:
-        """Cycle the cell's mark (R8.4) and judge a newly placed cat (R8.9).
+    def is_locked(self, cell: Cell) -> bool:
+        """A correct cat stays put: clicking it does nothing (R8.4)."""
+        solutions = self.solve_result.solutions
+        return cell in self.state.cats and bool(solutions) and cell in solutions[0].cats
 
-        Clicking hides a hint or Check result; a shown solution stays until
-        Solve is pressed again.
+    def is_protected(self, cell: Cell) -> bool:
+        """A ✕ that a correct cat on the board rules out; dragging never clears it (R8.10)."""
+        return any(cell in crossed_out_by(self.puzzle, cat) for cat in self.state.cats if self.is_locked(cat))
+
+    def begin_paint(self, cell: Cell) -> None:
+        """Start a drag at `cell` and paint it: ✕ from an empty cell, clearing from a ✕ (R8.10).
+
+        A drag that begins on a cat paints nothing.
         """
         self._clear_feedback()
-        mark = next_mark(self.state.mark_at(cell))
-        self.state = self.state.with_mark(cell, mark)
-        if mark is Mark.CAT:
-            self._judge_cat(cell)
-        if self.is_solved:
-            self.message = SOLVED_MESSAGE
+        self._paint_start = self.state
+        start = self.state.mark_at(cell)
+        self.painting = Paint.MARK if start is None else Paint.UNMARK if start is Mark.CROSS else None
+        self.paint(cell)
+
+    def paint(self, cell: Cell) -> None:
+        """Apply the current drag to one more cell. Cats are never changed."""
+        mark = self.state.mark_at(cell)
+        if self.painting is Paint.MARK and mark is None:
+            self.state = self.state.with_mark(cell, Mark.CROSS)
+        elif self.painting is Paint.UNMARK and mark is Mark.CROSS and not self.is_protected(cell):
+            self.state = self.state.with_mark(cell, None)
+
+    def end_paint(self) -> None:
+        """Finish a drag; the whole drag is one move for Previous (R8.13)."""
+        self.painting = None
+        if self._paint_start is not None:
+            self._remember(self._paint_start)
+            self._paint_start = None
+
+    def click(self, cell: Cell) -> None:
+        """Toggle the cell between empty and ✕ (R8.4).
+
+        Clicking a correct cat does nothing. Otherwise clicking hides a hint
+        and ends Step by Step; a shown solution stays until Solve is pressed again.
+        """
+        if self.is_locked(cell):
+            return
+        before, was_solved = self.state, self.is_solved
+        self._clear_feedback()
+        self.state = self.state.with_mark(cell, next_mark(self.state.mark_at(cell)))
+        self._note_solved(was_solved)
+        self._remember(before)
+
+    def place_cat(self, cell: Cell) -> None:
+        """Put a cat on the cell, whatever it held, and judge it (R8.4, R8.9). A double-click does this."""
+        if self.is_locked(cell):
+            return
+        before, was_solved = self.state, self.is_solved
+        self._clear_feedback()
+        self.state = self.state.with_mark(cell, Mark.CAT)
+        self._judge_cat(cell)
+        self._note_solved(was_solved)
+        self._remember(before)
+
+    def _note_solved(self, was_solved: bool) -> None:
+        """Flag the pop-up if this move completed the puzzle (R8.6); the pop-up is the only notice."""
+        self.just_solved = self.is_solved and not was_solved
 
     def _judge_cat(self, cat: Cell) -> None:
-        """A wrong cat becomes a ✕; a correct one crosses out the cells it rules out (R8.9)."""
+        """A wrong cat becomes a ✕ and shakes; a correct one crosses out the cells it rules out (R8.9)."""
         if not self.solve_result.solutions:
             return  # no solution to judge against
         if cat not in self.solve_result.solutions[0].cats:
             self.state = self.state.with_mark(cat, Mark.CROSS)
-            self.message = f"No cat at {describe_cell(cat)}, so it's marked ✕."
+            self.shake = cat
             return
         self.state = self.state.with_crosses(
             cell for cell in crossed_out_by(self.puzzle, cat) if self.state.is_open(cell)
@@ -167,35 +225,68 @@ class GameSession:
         if self.hint_shown:
             self._clear_feedback()
             return
-        hint = next_hint(self.puzzle, self.state)
         self._clear_feedback()
+        self._show_hint()
+
+    def _show_hint(self) -> None:
+        hint = next_hint(self.puzzle, self.state)
         self.message = name_regions(hint.message, self.region_phrases)
         self.highlight = hint.focus
         self.hint_shown = True
+        if hint.kind is HintKind.DEDUCTION and hint.deduction is not None:
+            self.applicable = hint
         if hint.kind in (HintKind.RULE_BROKEN, HintKind.MISTAKE):
             self.highlight_style = Highlight.PROBLEM
         elif hint.focus:
             self.highlight_style = Highlight.HINT
 
-    def check(self) -> None:
-        """Highlight cats that break a rule. Missing cats aren't counted on a board in progress."""
+    def apply_hint(self) -> None:
+        """Make the shown hint's move for the player, then hide the hint (R8.11).
+
+        A cat goes through the same check as a clicked one (R8.9); ✕ marks go
+        on the cells the hint rules out.
+        """
+        if self.applicable is None or self.applicable.deduction is None:
+            return
+        deduction = self.applicable.deduction
+        before, was_solved = self.state, self.is_solved
         self._clear_feedback()
-        if self.is_solved:
-            self.message = SOLVED_MESSAGE
-            return
-        conflicts = find_conflicts(self.puzzle, self.state.cats)
-        if not conflicts:
-            self.message = "No rules broken so far."
-            return
-        self.highlight = frozenset(cell for conflict in conflicts for cell in conflict.cells)
-        self.highlight_style = Highlight.PROBLEM
-        first = name_regions(conflicts[0].message, self.region_phrases)
-        self.message = f"{count_of(len(conflicts), 'problem')}: {first}."
+        if deduction.place_cat is not None:
+            self.state = self.state.with_mark(deduction.place_cat, Mark.CAT)
+            self._judge_cat(deduction.place_cat)
+        else:
+            self.state = self.state.with_crosses(cell for cell in deduction.cross_out if self.state.is_open(cell))
+        self._note_solved(was_solved)
+        self._remember(before)
+
+    def step(self) -> None:
+        """Step by Step, then Next (R8.12): like pressing Hint and Apply over and over.
+
+        The first press shows step 1. Each Next makes the shown step's move and
+        shows the following step. Stepping ends when the puzzle is solved (the
+        pop-up follows, R8.6) or no step is left: then the message is that last
+        hint's, such as "No simple step found; try Solve.".
+        """
+        if self.stepping and self.applicable is not None:
+            number = self.step_number
+            self.apply_hint()
+            if self.is_solved:
+                return
+            self.step_number = number + 1
+        else:
+            self._clear_feedback()
+            self.step_number = 1
+        self._show_hint()
+        if self.applicable is not None:
+            self.stepping = True
+            self.message = f"Step {self.step_number}: {self.message}"
 
     def solve(self) -> None:
         """Show a solution over the player's marks, or hide it if it's showing (R8.5).
 
-        Never changes the marks, so the player keeps playing from where they were.
+        Never changes the marks, so the player keeps playing from where they
+        were. The board shows the answer, so there's no message, except when
+        there is no solution to show.
         """
         self._clear_feedback()
         if self.revealed:
@@ -206,19 +297,52 @@ class GameSession:
             self.message = "This puzzle has no solution."
             return
         self.revealed = result.solutions[0].cats
-        if result.status is SolveStatus.UNIQUE:
-            self.message = "Here is the solution."
-        else:
-            self.message = "This puzzle has more than one solution. Here is one of them."
 
     def reset(self) -> None:
+        """Clear the board. Previous can bring the marks back (R8.13)."""
+        before = self.state
         self.state = BoardState.empty(self.puzzle.size)
         self.revealed = frozenset()
         self._clear_feedback()
+        self._remember(before)
+
+    def _remember(self, before: BoardState) -> None:
+        """Record a move for Previous, if the marks changed. A new move ends what Next could redo."""
+        if self.state != before:
+            self.undo_states.append(before)
+            self.redo_states.clear()
+
+    @property
+    def can_undo(self) -> bool:
+        return bool(self.undo_states)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self.redo_states)
+
+    def undo(self) -> None:
+        """Previous: go back to the marks before the last move (R8.13)."""
+        if self.undo_states:
+            self._clear_feedback()
+            self.redo_states.append(self.state)
+            self.state = self.undo_states.pop()
+            self._note_solved(was_solved=True)  # no pop-up when undoing
+
+    def redo(self) -> None:
+        """Next: make the move that Previous undid (R8.13)."""
+        if self.redo_states:
+            self._clear_feedback()
+            self.undo_states.append(self.state)
+            self.state = self.redo_states.pop()
+            self._note_solved(was_solved=True)
 
     def _clear_feedback(self) -> None:
-        """Hide a hint or Check result and its message. A shown solution stays."""
+        """Hide a hint and its message, end Step by Step, and end a shake or pop-up. A shown solution stays."""
         self.highlight = frozenset()
         self.highlight_style = None
         self.hint_shown = False
+        self.applicable = None
+        self.stepping = False
         self.message = ""
+        self.shake = None
+        self.just_solved = False

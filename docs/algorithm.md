@@ -171,7 +171,7 @@ the tile color still visible around it (`IMG_7117.PNG`).
 
 This program's own window (R9.6, `gui-*` fixtures) draws the same kind of
 board, with a lucky cat face (white, dark outlines) for a cat. It also
-shows Solve's answer as gray-outlined cats, and Hint and Check rings in the
+shows Solve's answer as gray-outlined cats, and Hint rings (orange or red) in the
 gaps around tiles. A whole-window screenshot adds a title bar and, from
 macOS, a transparent shadow, which is laid over white when the image is
 opened.

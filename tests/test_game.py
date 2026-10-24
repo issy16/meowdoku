@@ -6,7 +6,6 @@ import pytest
 
 from meowdoku.game import (
     PALETTE,
-    SOLVED_MESSAGE,
     GameSession,
     Highlight,
     crossed_out_by,
@@ -25,9 +24,8 @@ def new_session(text: str = EXAMPLE_TEXT) -> GameSession:
 
 
 def place_cat(session: GameSession, cell: tuple[int, int]) -> None:
-    """Two clicks: empty → ✕ → cat."""
-    session.click(cell)
-    session.click(cell)
+    """What a double-click does."""
+    session.place_cat(cell)
 
 
 def start_with_cats(session: GameSession, *cats: tuple[int, int]) -> None:
@@ -57,20 +55,44 @@ def test_custom_colors_are_kept() -> None:
 # R8.4 Clicking
 
 
-def test_r8_4_click_cycles_empty_cross_cat_empty() -> None:
+def test_r8_4_click_toggles_cross_and_clears_cats() -> None:
     assert next_mark(None) is Mark.CROSS
-    assert next_mark(Mark.CROSS) is Mark.CAT
+    assert next_mark(Mark.CROSS) is None
     assert next_mark(Mark.CAT) is None
 
 
-def test_r8_4_click_changes_the_cell() -> None:
+def test_r8_4_click_on_a_cross_uncrosses_it() -> None:
+    session = new_session()
+    session.click((0, 0))
+    assert session.state.mark_at((0, 0)) is Mark.CROSS
+    session.click((0, 0))
+    assert session.state.is_open((0, 0))
+    assert session.shake is None
+
+
+def test_r8_4_place_cat_replaces_a_cross() -> None:
     session = new_session()
     session.click((1, 2))
-    assert session.state.mark_at((1, 2)) is Mark.CROSS
-    session.click((1, 2))
+    place_cat(session, (1, 2))
     assert session.state.mark_at((1, 2)) is Mark.CAT
+
+
+def test_r8_4_a_correct_cat_is_locked() -> None:
+    session = new_session()
+    place_cat(session, (1, 2))
+    marks = session.state
     session.click((1, 2))
-    assert session.state.is_open((1, 2))
+    assert session.state == marks
+    assert session.is_locked((1, 2))
+
+
+def test_r8_4_wrong_cats_from_a_screenshot_are_not_locked() -> None:
+    session = new_session()
+    start_with_cats(session, (0, 0), (1, 2))
+    assert not session.is_locked((0, 0))
+    assert session.is_locked((1, 2))
+    session.click((0, 0))
+    assert session.state.is_open((0, 0))
 
 
 def test_click_hides_hint_but_keeps_shown_solution() -> None:
@@ -83,6 +105,106 @@ def test_click_hides_hint_but_keeps_shown_solution() -> None:
     assert session.revealed == set(EXAMPLE_SOLUTION)
 
 
+# R8.11 Applying a hint
+
+
+def test_r8_11_apply_crosses_out_what_the_hint_rules_out() -> None:
+    session = new_session()
+    session.hint()  # D3: the pink region's cat is in column 5
+    assert session.applicable is not None
+    session.apply_hint()
+    assert session.state.crosses == {(0, 2), (0, 3), (4, 3)}
+    assert not session.hint_shown
+    assert session.applicable is None
+
+
+def test_r8_11_apply_places_the_cat_and_judges_it() -> None:
+    """Row 1 has one cell left, so the hint places its cat; a correct cat locks and fills in ✕."""
+    session = new_session()
+    session.state = BoardState(5, crosses=frozenset({(0, 0), (0, 1), (0, 2), (0, 3)}))
+    session.hint()
+    assert session.message == "This row has only 1 cell left."
+    session.apply_hint()
+    assert session.state.cats == {(0, 4)}
+    assert session.is_locked((0, 4))
+    assert crossed_out_by(session.puzzle, (0, 4)) <= session.state.crosses
+
+
+def test_r8_11_mistakes_have_nothing_to_apply() -> None:
+    session = new_session()
+    start_with_cats(session, (0, 0))
+    session.hint()
+    assert session.highlight_style is Highlight.PROBLEM
+    assert session.applicable is None
+    marks = session.state
+    session.apply_hint()
+    assert session.state == marks
+
+
+def test_r8_11_apply_can_finish_the_puzzle() -> None:
+    session = new_session()
+    for cell in EXAMPLE_SOLUTION[:-1]:
+        place_cat(session, cell)
+    session.hint()
+    session.apply_hint()
+    assert session.is_solved
+    assert session.just_solved
+
+
+# R8.10 Dragging marks or unmarks
+
+
+def test_r8_10_paint_from_an_empty_cell_marks_empty_cells_only() -> None:
+    session = new_session()
+    start_with_cats(session, (2, 2))
+    session.begin_paint((2, 0))
+    for cell in [(2, 1), (2, 2), (2, 3)]:
+        session.paint(cell)
+    session.end_paint()
+    assert session.state.crosses == {(2, 0), (2, 1), (2, 3)}
+    assert session.state.cats == {(2, 2)}
+
+
+def test_r8_10_paint_from_a_cross_clears_crosses() -> None:
+    session = new_session()
+    session.state = BoardState(5, crosses=frozenset({(1, 1), (1, 2), (1, 3)}))
+    session.begin_paint((1, 1))
+    session.paint((1, 2))
+    assert session.state.crosses == {(1, 3)}
+
+
+def test_r8_10_unmarking_keeps_crosses_a_correct_cat_rules_out() -> None:
+    """The cat at (2, 0) is correct; its ✕ marks stay, even one the player placed before it."""
+    session = new_session()
+    session.click((2, 4))  # the player's own ✕, in the cat's row
+    place_cat(session, (2, 0))
+    session.click((1, 3))  # a ✕ the cat doesn't rule out
+    session.begin_paint((1, 3))
+    for cell in [(2, 4), (2, 3), (1, 1), (1, 3)]:
+        session.paint(cell)
+    assert session.state.crosses == crossed_out_by(session.puzzle, (2, 0))
+    assert session.is_protected((2, 4))
+    assert not session.is_protected((1, 3))
+
+
+def test_r8_10_a_drag_from_a_cat_changes_nothing() -> None:
+    session = new_session()
+    place_cat(session, (2, 0))
+    marks = session.state
+    session.begin_paint((2, 0))
+    session.paint((3, 2))
+    assert session.state == marks
+    assert session.painting is None
+
+
+def test_r8_10_painting_hides_a_hint() -> None:
+    session = new_session()
+    session.hint()
+    session.begin_paint((3, 0))
+    assert not session.hint_shown
+    assert session.message == ""
+
+
 # R8.9 Placed cats are judged against the solution
 
 
@@ -91,15 +213,28 @@ def test_r8_9_wrong_cat_becomes_a_cross() -> None:
     place_cat(session, (0, 0))
     assert session.state.mark_at((0, 0)) is Mark.CROSS
     assert session.state.cats == frozenset()
-    assert session.message == "No cat at row 1, column 1, so it's marked ✕."
+    assert session.shake == (0, 0)
+    assert session.message == ""
 
 
-def test_r8_9_a_wrong_cat_is_rejected_again() -> None:
-    """The cell can't hold a cat, so the next click tries a cat and it stays ✕."""
+def test_r8_9_shake_ends_with_the_next_action() -> None:
+    session = new_session()
+    place_cat(session, (0, 0))
+    session.click((4, 4))
+    assert session.shake is None
+
+
+def test_r8_9_a_correct_cat_does_not_shake() -> None:
+    session = new_session()
+    place_cat(session, (2, 0))
+    assert session.shake is None
+
+
+def test_r8_9_the_cross_left_by_a_wrong_cat_clears_with_a_click() -> None:
     session = new_session()
     place_cat(session, (0, 0))
     session.click((0, 0))
-    assert session.state.mark_at((0, 0)) is Mark.CROSS
+    assert session.state.is_open((0, 0))
 
 
 def test_r8_9_correct_cat_crosses_its_row_column_region_and_neighbors() -> None:
@@ -173,21 +308,160 @@ def test_r8_5_hint_again_hides_it() -> None:
     assert session.message.startswith("The cat must be in the pink region")
 
 
-def test_r8_5_check_with_no_problems() -> None:
+def test_r8_5_check_is_gone() -> None:
+    """Removed at the owner's request; Hint still points out broken rules in red."""
+    assert not hasattr(GameSession, "check")
+
+
+# R8.13 Previous and Next undo and redo the player's moves
+
+
+def test_r8_13_previous_undoes_and_next_redoes_a_click() -> None:
+    session = new_session()
+    assert not session.can_undo
+    session.click((0, 0))
+    session.undo()
+    assert session.state == BoardState.empty(5)
+    assert session.can_redo
+    session.redo()
+    assert session.state.crosses == {(0, 0)}
+    assert not session.can_redo
+
+
+def test_r8_13_a_cat_and_its_crosses_are_one_move() -> None:
+    session = new_session()
+    place_cat(session, (2, 0))
+    session.undo()
+    assert session.state == BoardState.empty(5)
+    assert not session.can_undo
+
+
+def test_r8_13_a_whole_drag_is_one_move() -> None:
+    session = new_session()
+    session.begin_paint((3, 0))
+    for cell in [(3, 1), (3, 2), (3, 3)]:
+        session.paint(cell)
+    session.end_paint()
+    assert len(session.undo_states) == 1
+    session.undo()
+    assert session.state == BoardState.empty(5)
+
+
+def test_r8_13_reset_can_be_undone() -> None:
+    session = new_session()
+    place_cat(session, (2, 0))
+    marks = session.state
+    session.reset()
+    session.undo()
+    assert session.state == marks
+
+
+def test_r8_13_applying_and_stepping_are_moves() -> None:
+    session = new_session()
+    session.hint()
+    session.apply_hint()
+    session.step()
+    session.step()  # Next Step makes the shown step's move
+    assert len(session.undo_states) == 2
+    session.undo()
+    session.undo()
+    assert session.state == BoardState.empty(5)
+
+
+def test_r8_13_a_new_move_ends_redo() -> None:
+    session = new_session()
+    session.click((0, 0))
+    session.undo()
+    session.click((4, 4))
+    assert not session.can_redo
+
+
+def test_r8_13_moves_that_change_nothing_are_not_recorded() -> None:
+    session = new_session()
+    place_cat(session, (2, 0))
+    session.click((2, 0))  # a locked cat: nothing happens
+    session.begin_paint((2, 0))  # a drag from a cat paints nothing
+    session.paint((4, 4))
+    session.end_paint()
+    assert len(session.undo_states) == 1
+
+
+def test_r8_13_undo_hides_a_hint_and_ends_stepping() -> None:
+    session = new_session()
+    session.click((0, 0))
+    session.step()
+    session.undo()
+    assert not session.stepping
+    assert not session.hint_shown
+
+
+def test_r8_13_redoing_the_solving_move_shows_no_pop_up() -> None:
+    session = new_session()
+    for cell in EXAMPLE_SOLUTION:
+        place_cat(session, cell)
+    session.undo()
+    assert not session.is_solved
+    session.redo()
+    assert session.message == ""  # the pop-up is the only notice (R8.6)
+    assert not session.just_solved
+
+
+# R8.12 Step by Step
+
+
+def test_r8_12_first_press_shows_step_one_without_marking() -> None:
+    session = new_session()
+    session.step()
+    assert session.stepping
+    assert session.message.startswith("Step 1: The cat must be in the pink region")
+    assert session.highlight_style is Highlight.HINT
+    assert session.state == BoardState.empty(5)
+
+
+def test_r8_12_next_applies_the_step_and_shows_the_next() -> None:
+    session = new_session()
+    session.step()
+    session.step()
+    assert session.state.crosses == {(0, 2), (0, 3), (4, 3)}
+    assert session.stepping
+    assert session.message.startswith("Step 2: ")
+
+
+def test_r8_12_stepping_to_the_end_solves_the_puzzle() -> None:
+    session = new_session()
+    presses = 0
+    session.step()
+    while session.stepping:
+        session.step()
+        presses += 1
+        assert presses < 50
+    assert session.is_solved
+    assert session.just_solved
+    assert session.message == ""  # the pop-up is the only notice (R8.6)
+
+
+def test_r8_12_stops_when_no_step_is_left() -> None:
+    session = new_session("ABCD\nABCD\nABCD\nABCD")  # several solutions, no forced first step
+    session.step()
+    assert not session.stepping
+    assert session.message == "No simple step found; try Solve."
+
+
+def test_r8_12_stops_at_a_mistake() -> None:
     session = new_session()
     start_with_cats(session, (0, 0))
-    session.check()
-    assert session.message == "No rules broken so far."
-    assert session.highlight_style is None
-
-
-def test_r8_5_check_highlights_broken_rules() -> None:
-    session = new_session()
-    start_with_cats(session, (0, 0), (1, 1))
-    session.check()
+    session.step()
+    assert not session.stepping
     assert session.highlight_style is Highlight.PROBLEM
-    assert session.highlight == {(0, 0), (1, 1)}
-    assert session.message.startswith("1 problem: cats at row 1, column 1 and row 2, column 2 touch")
+
+
+def test_r8_12_clicking_a_cell_ends_stepping() -> None:
+    session = new_session()
+    session.step()
+    session.click((4, 4))
+    assert not session.stepping
+    session.step()
+    assert session.message.startswith("Step 1: ")
 
 
 def test_r8_5_solve_shows_unique_solution_without_marking() -> None:
@@ -196,7 +470,7 @@ def test_r8_5_solve_shows_unique_solution_without_marking() -> None:
     session.solve()
     assert session.revealed == set(EXAMPLE_SOLUTION)
     assert session.state.crosses == {(2, 2)}
-    assert session.message == "Here is the solution."
+    assert session.message == ""
 
 
 def test_r8_5_solve_again_hides_the_answer_and_keeps_the_marks() -> None:
@@ -220,11 +494,11 @@ def test_r8_5_solution_stays_while_playing() -> None:
     assert (4, 1) in session.state.cats
 
 
-def test_r8_5_solve_notes_several_solutions() -> None:
+def test_r8_5_solve_shows_one_of_several_solutions_quietly() -> None:
     session = new_session("ABCD\nABCD\nABCD\nABCD")
     session.solve()
     assert session.revealed == {(0, 1), (1, 3), (2, 0), (3, 2)}
-    assert session.message == "This puzzle has more than one solution. Here is one of them."
+    assert session.message == ""
 
 
 def test_r8_5_solve_notes_no_solution() -> None:
@@ -257,13 +531,6 @@ def test_r7_8_hint_names_regions_by_color() -> None:
     )
 
 
-def test_r7_8_check_names_regions_by_color() -> None:
-    session = new_session()
-    start_with_cats(session, (0, 1), (2, 0))
-    session.check()
-    assert session.message == "1 problem: the light green region has 2 cats; it needs exactly one."
-
-
 # R8.6 Solved
 
 
@@ -273,7 +540,19 @@ def test_r8_6_completing_the_board_shows_solved() -> None:
         assert not session.is_solved
         place_cat(session, cell)
     assert session.is_solved
-    assert session.message == SOLVED_MESSAGE
+    assert session.message == ""  # the pop-up is the only notice (R8.6)
+    assert session.just_solved
+
+
+def test_r8_6_pop_up_only_on_the_click_that_solves() -> None:
+    session = new_session()
+    for cell in EXAMPLE_SOLUTION[:-1]:
+        place_cat(session, cell)
+        assert not session.just_solved
+    place_cat(session, EXAMPLE_SOLUTION[-1])
+    assert session.just_solved
+    session.hint()
+    assert not session.just_solved
 
 
 # Opening files (R8.5): screenshots only

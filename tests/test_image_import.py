@@ -313,12 +313,12 @@ def test_r6_5_cli_reports_unreadable_screenshot(tmp_path: Path, capsys: pytest.C
 
 
 def test_r8_3_game_opened_from_screenshot_keeps_its_colors(tmp_path: Path) -> None:
-    from meowdoku.game import IMPORTED_MESSAGE, GameSession
+    from meowdoku.game import GameSession
 
     session = GameSession.from_screenshot(save(draw_screenshot(EXAMPLE), tmp_path / "example.png"))
     assert session.puzzle == EXAMPLE
     assert color_distance(session.colors["A"], TEST_COLORS[0]) <= 3
-    assert session.message == IMPORTED_MESSAGE
+    assert session.message == ""  # no message after opening a screenshot (owner's request)
 
 
 def test_r9_1a_game_starts_from_imported_marks(tmp_path: Path) -> None:
@@ -328,9 +328,7 @@ def test_r9_1a_game_starts_from_imported_marks(tmp_path: Path) -> None:
     session = GameSession.from_screenshot(save(draw_screenshot(EXAMPLE, marks=marks), tmp_path / "b.png"))
     assert session.state.cats == {(0, 4)}
     assert session.state.crosses == {(1, 0), (2, 2)}
-    assert session.message == (
-        "Read from the screenshot, with 1 cat and 2 ✕ marks. Check that the board matches your game."
-    )
+    assert session.message == ""
     session.reset()
     assert session.state.cats == frozenset()
 
