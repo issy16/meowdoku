@@ -40,10 +40,15 @@ def test_r7_5_broken_rule_points_at_conflicting_cats() -> None:
     hint = next_hint(EXAMPLE, with_cats(EXAMPLE, {(0, 0), (1, 1)}))
     assert hint.kind is HintKind.RULE_BROKEN
     assert hint.focus == {(0, 0), (1, 1)}
-    assert hint.message == (
-        "A rule is broken: cats at row 1, column 1 and row 2, column 2 touch; "
-        "cats may not share an edge or corner."
-    )
+    assert hint.message == "These cats touch."
+
+
+def test_r7_5_too_many_cats_names_the_kind_of_unit() -> None:
+    """Two cats in row 1, in different regions and not touching."""
+    hint = next_hint(EXAMPLE, with_cats(EXAMPLE, {(0, 0), (0, 2)}))
+    assert hint.kind is HintKind.RULE_BROKEN
+    assert hint.focus == {(0, 0), (0, 2)}
+    assert hint.message == "This row has 2 cats."
 
 
 def test_r7_5_mistake_points_at_first_wrong_mark() -> None:
@@ -52,9 +57,7 @@ def test_r7_5_mistake_points_at_first_wrong_mark() -> None:
     hint = next_hint(EXAMPLE, state)
     assert hint.kind is HintKind.MISTAKE
     assert hint.focus == {(1, 2)}
-    assert hint.message == (
-        "There's a mistake: the mark at row 2, column 3 doesn't fit the solution."
-    )
+    assert hint.message == "This mark is wrong."
 
 
 def test_r7_5_wrong_cat_is_a_mistake() -> None:
@@ -67,7 +70,7 @@ def test_r7_5_mistake_on_puzzle_with_several_solutions() -> None:
     """Only 1-3-0-2 and 2-0-3-1 solve this board; a cat at (0, 0) fits neither."""
     puzzle = column_stripes(4)
     hint = next_hint(puzzle, with_cats(puzzle, {(0, 0)}))
-    assert hint == Hint(HintKind.MISTAKE, "There's a mistake: your marks don't fit any solution.")
+    assert hint == Hint(HintKind.MISTAKE, "Some of your marks are wrong.")
 
 
 def test_r7_2_deduction_hint_on_empty_board() -> None:

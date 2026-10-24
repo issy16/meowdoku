@@ -44,12 +44,29 @@ def test_phrases_use_color_names() -> None:
     }
 
 
-def test_r7_8_same_color_name_keeps_the_letter() -> None:
+def test_r7_8_same_color_name_is_told_apart_by_shade() -> None:
     assert region_phrases({"A": "#e53935", "B": "#f4a7a3", "C": "#9e704f"}) == {
-        "A": "region 'A' (red)",
-        "B": "region 'B' (red)",
+        "A": "the darker red region",
+        "B": "the lighter red region",
         "C": "the brown region",
     }
+
+
+def test_r7_8_three_of_one_color_name() -> None:
+    phrases = region_phrases({"A": "#f4a7a3", "B": "#e53935", "C": "#e85a55"})
+    assert phrases == {
+        "A": "the lightest red region",
+        "B": "the darkest red region",
+        "C": "the second-lightest red region",
+    }
+
+
+def test_r7_8_phrases_never_show_letters() -> None:
+    """Up to 9 regions with the same color name, as on a large board of oranges."""
+    colors = {chr(65 + i): f"#{0xED - 6 * i:02x}{0xA0 - 6 * i:02x}{0x68 - 4 * i:02x}" for i in range(9)}
+    phrases = region_phrases(colors)
+    assert len(set(phrases.values())) == len(colors)
+    assert not any("'" in phrase for phrase in phrases.values())
 
 
 PHRASES = {"A": "the pink region", "B": "the brown region"}

@@ -71,15 +71,33 @@ def color_name(color: str) -> str:
 def region_phrases(colors: Mapping[str, str]) -> dict[str, str]:
     """How to mention each region: 'the pink region'.
 
-    If two regions would get the same color name, both keep their letter too,
-    e.g. "region 'A' (green)", so a hint is never ambiguous.
+    Regions whose colors get the same name are told apart by shade, lightest
+    first: "the lighter orange region" and "the darker orange region", or
+    "the lightest", "the second-lightest", ... "the darkest" for three or
+    more. Letters are never shown, so a hint is never ambiguous.
     """
     names = {label: color_name(color) for label, color in colors.items()}
     counts = Counter(names.values())
-    return {
-        label: f"the {name} region" if counts[name] == 1 else f"region {label!r} ({name})"
-        for label, name in names.items()
-    }
+    phrases = {label: f"the {name} region" for label, name in names.items() if counts[name] == 1}
+    for name in (name for name, count in counts.items() if count > 1):
+        same = sorted((label for label in names if names[label] == name), key=lambda label: -_lightness(colors[label]))
+        for shade, label in zip(_shades(len(same)), same):
+            phrases[label] = f"the {shade} {name} region"
+    return {label: phrases[label] for label in colors}
+
+
+def _lightness(color: str) -> float:
+    red, green, blue = _rgb(color)
+    return 0.299 * red + 0.587 * green + 0.114 * blue
+
+
+def _shades(count: int) -> list[str]:
+    """Words for `count` shades of one color, lightest first."""
+    if count == 2:
+        return ["lighter", "darker"]
+    ordinals = ["second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"]
+    middle = [f"{ordinals[i]}-lightest" for i in range(count - 2)]
+    return ["lightest", *middle, "darkest"]
 
 
 def name_regions(message: str, phrases: Mapping[str, str]) -> str:

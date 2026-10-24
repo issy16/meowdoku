@@ -8,8 +8,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 from meowdoku.deduce import Deduction, find_deduction
-from meowdoku.puzzle import Cell, Puzzle, describe_cell
-from meowdoku.rules import find_conflicts, is_valid_solution
+from meowdoku.puzzle import Cell, Puzzle
+from meowdoku.rules import Rule, RuleViolation, find_conflicts, is_valid_solution
 from meowdoku.solver import Solution, SolveResult, SolveStatus, iter_solutions, solve
 from meowdoku.state import BoardState
 
@@ -68,7 +68,16 @@ def _find_broken_rule(puzzle: Puzzle, state: BoardState) -> Hint | None:
     if not conflicts:
         return None
     first = conflicts[0]
-    return Hint(HintKind.RULE_BROKEN, f"A rule is broken: {first.message}.", frozenset(first.cells))
+    return Hint(HintKind.RULE_BROKEN, _broken_rule_message(first), frozenset(first.cells))
+
+
+def _broken_rule_message(violation: RuleViolation) -> str:
+    """Short, since the hint highlights the cats: "These cats touch." or "This row has 2 cats."."""
+    if violation.rule is Rule.ADJACENT:
+        return "These cats touch."
+    if violation.rule is Rule.OUT_OF_BOUNDS:
+        return "This cat is off the board."
+    return f"This {violation.rule.value} has {len(violation.cells)} cats."
 
 
 def _find_mistake(puzzle: Puzzle, state: BoardState, result: SolveResult) -> Hint | None:
@@ -80,12 +89,12 @@ def _find_mistake(puzzle: Puzzle, state: BoardState, result: SolveResult) -> Hin
             return None
         return Hint(
             HintKind.MISTAKE,
-            f"There's a mistake: the mark at {describe_cell(wrong[0])} doesn't fit the solution.",
+            "This mark is wrong.",
             frozenset({wrong[0]}),
         )
     if any(_matches(solution, state) for solution in iter_solutions(puzzle)):
         return None
-    return Hint(HintKind.MISTAKE, "There's a mistake: your marks don't fit any solution.")
+    return Hint(HintKind.MISTAKE, "Some of your marks are wrong.")
 
 
 def _matches(solution: Solution, state: BoardState) -> bool:

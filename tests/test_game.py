@@ -151,7 +151,7 @@ def test_r8_5_hint_highlights_and_explains_without_marking() -> None:
     assert session.state == BoardState.empty(5)
     assert session.highlight_style is Highlight.HINT
     assert session.highlight == {(0, 4), (1, 4), (2, 4), (3, 4), (4, 4)}
-    assert session.message.startswith("Every cell left in column 5 is in the pink region")
+    assert session.message.startswith("The cat must be in the pink region in this column")
 
 
 def test_r8_5_hint_on_mistake_uses_problem_highlight() -> None:
@@ -170,7 +170,7 @@ def test_r8_5_hint_again_hides_it() -> None:
     assert session.highlight == frozenset()
     assert session.highlight_style is None
     session.hint()
-    assert session.message.startswith("Every cell left in column 5")
+    assert session.message.startswith("The cat must be in the pink region")
 
 
 def test_r8_5_check_with_no_problems() -> None:
@@ -253,8 +253,7 @@ def test_r7_8_hint_names_regions_by_color() -> None:
     session = new_session()
     session.hint()
     assert session.message == (
-        "Every cell left in column 5 is in the pink region, so the cat of the pink region "
-        "must be in column 5. The other cells in the pink region can't have a cat."
+        "The cat must be in the pink region in this column, so cross out the rest of the pink region."
     )
 
 

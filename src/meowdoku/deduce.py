@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from itertools import combinations
 
-from meowdoku.puzzle import Cell, Puzzle, describe_cell
+from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.state import BoardState
 
 
@@ -28,6 +28,11 @@ class Unit:
 
     name: str
     cells: frozenset[Cell]
+
+    @property
+    def kind(self) -> str:
+        """'row', 'column', or 'region', for short messages like "This row has ..."."""
+        return self.name.split()[0]
 
 
 @dataclass(frozen=True)
@@ -92,17 +97,6 @@ def ruled_out_by(puzzle: Puzzle, cat: Cell) -> frozenset[Cell]:
     return frozenset((nearby | region) - {cat})
 
 
-def _capitalize(text: str) -> str:
-    return text[0].upper() + text[1:]
-
-
-def _join(items: Sequence[str]) -> str:
-    """Join as 'a', 'a and b', or 'a, b and c'."""
-    if len(items) == 1:
-        return items[0]
-    return ", ".join(items[:-1]) + " and " + items[-1]
-
-
 # D1 Cat neighborhood
 
 
@@ -114,8 +108,7 @@ def cat_neighborhood(puzzle: Puzzle, state: BoardState) -> Deduction | None:
             return Deduction(
                 Technique.CAT_NEIGHBORHOOD,
                 frozenset({cat}),
-                f"The cat at {describe_cell(cat)} rules out every other cell in its row, "
-                "column, and region, and every cell touching it.",
+                "This cat rules out its row, column, region, and the cells around it.",
                 cross_out=targets,
             )
     return None
@@ -135,8 +128,7 @@ def last_open_cell(puzzle: Puzzle, state: BoardState) -> Deduction | None:
             return Deduction(
                 Technique.LAST_OPEN_CELL,
                 unit.cells,
-                f"{_capitalize(unit.name)} has only one cell left that can hold its cat, "
-                f"so the cat goes at {describe_cell(cell)}.",
+                f"This {unit.kind} has only 1 cell left.",
                 place_cat=cell,
             )
     return None
@@ -163,9 +155,8 @@ def region_confined_to_line(puzzle: Puzzle, state: BoardState) -> Deduction | No
                     return Deduction(
                         Technique.CONFINEMENT,
                         remaining,
-                        f"Every cell left in {region.name} is in {line.name}, so the cat of "
-                        f"{line.name} must be in {region.name}. The other cells in "
-                        f"{line.name} can't have a cat.",
+                        f"The cat must be in {region.name} in this {line.kind}, "
+                        f"so cross out the rest of this {line.kind}.",
                         cross_out=targets,
                     )
     return None
@@ -184,9 +175,8 @@ def line_confined_to_region(puzzle: Puzzle, state: BoardState) -> Deduction | No
                     return Deduction(
                         Technique.CONFINEMENT,
                         remaining,
-                        f"Every cell left in {line.name} is in {region.name}, so the cat of "
-                        f"{region.name} must be in {line.name}. The other cells in "
-                        f"{region.name} can't have a cat.",
+                        f"The cat must be in {region.name} in this {line.kind}, "
+                        f"so cross out the rest of {region.name}.",
                         cross_out=targets,
                     )
     return None
@@ -233,14 +223,10 @@ def _pigeonhole_for_group(
     )
     if not targets:
         return None
-    region_names = _join([region.name for region, _ in group])
-    line_names = f"{line_word} " + _join([str(line + 1) for line in lines])
     return Deduction(
         Technique.PIGEONHOLE,
         remaining,
-        f"Every cell left in {region_names} is in {line_names}. These {len(group)} regions "
-        f"need {len(group)} cats, which fill {line_names}, so the other cells in "
-        f"{line_names} can't have a cat.",
+        f"These regions only fit in these {line_word}, so cross out the rest of those {line_word}.",
         cross_out=targets,
     )
 
@@ -249,7 +235,10 @@ def _pigeonhole_for_group(
 
 
 def blocking(puzzle: Puzzle, state: BoardState) -> Deduction | None:
-    """An open cell is ✕ if a cat there would leave some other unit with no open cell."""
+    """An open cell is ✕ if a cat there would leave some other unit with no open cell.
+
+    The basis is the cell itself, which the hint calls "here".
+    """
     units = [unit for unit in all_units(puzzle) if not has_cat(unit, state)]
     for cell in puzzle.cells():
         if not state.is_open(cell):
@@ -262,12 +251,29 @@ def blocking(puzzle: Puzzle, state: BoardState) -> Deduction | None:
             if remaining <= ruled_out:
                 return Deduction(
                     Technique.BLOCKING,
-                    remaining,
-                    f"A cat at {describe_cell(cell)} would rule out every cell left in "
-                    f"{unit.name}, so {describe_cell(cell)} can't have a cat.",
+                    frozenset({cell}),
+                    f"A cat here would leave {_seen_from(cell, unit)} with no room for its cat, "
+                    "so it can't have a cat.",
                     cross_out=frozenset({cell}),
                 )
     return None
+
+
+def _seen_from(cell: Cell, unit: Unit) -> str:
+    """Name a unit without numbers, from where `cell` is: "the row above", "region 'B'".
+
+    The blocked unit is never the cell's own row or column, so a row is above
+    or below it and a column is to its left or right.
+    """
+    if unit.kind == "region":
+        return unit.name
+    axis = 0 if unit.kind == "row" else 1
+    distance = next(iter(unit.cells))[axis] - cell[axis]
+    if unit.kind == "row":
+        side = "above" if distance < 0 else "below"
+        return f"the row {side}" if abs(distance) == 1 else f"a row further {'up' if distance < 0 else 'down'}"
+    side = "left" if distance < 0 else "right"
+    return f"the column to the {side}" if abs(distance) == 1 else f"a column further {side}"
 
 
 # All rules, simplest first (R7.4)

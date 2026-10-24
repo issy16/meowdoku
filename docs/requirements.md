@@ -90,8 +90,11 @@ reported together in `.problems`.
 - **R7.2** `next_hint(puzzle, state)` returns the next available hint from
   the current state. It never modifies the state.
 - **R7.3** A hint names the deduction rule used, the cells it's based on, the
-  conclusion (a cat belongs in a cell, or cells can be marked ✕), and a plain-English
-  reason using 1-indexed row and column numbers.
+  conclusion (a cat belongs in a cell, or cells can be marked ✕), and a short
+  plain-English reason, e.g. "This region has only 1 cell left." The GUI
+  highlights the cells, so the reason refers to them ("here", "this row",
+  "these regions") and never gives row or column numbers. (Shortened at the
+  owner's request.)
 - **R7.4** Deduction rules are tried simplest first, in the fixed order in
   docs/algorithm.md. The first rule that gives new information is returned, so
   the same state always gets the same hint.
@@ -105,11 +108,14 @@ reported together in `.problems`.
   solution, the hint says so.
 - **R7.7** Deduction rules must be sound: a hint never contradicts the
   puzzle's solution.
-- **R7.8** In the GUI, hint and Check messages name regions by color, e.g.
+- **R7.8** In the GUI, hint messages name regions by color, e.g.
   "the pink region", using the closest of a list of named colors that
-  includes the real game's tile colors. If two regions would get the same
-  name, both keep their letter: "region 'A' (green)". The command line keeps
-  letters, since it shows the letter grid. (Added at the owner's request.)
+  includes the real game's tile colors. Regions whose colors get the same
+  name are told apart by shade, never by letter: "the lighter orange region"
+  and "the darker orange region", or "the lightest", "the second-lightest",
+  … "the darkest" for three or more. The command line keeps letters, since
+  it shows the letter grid. (Added at the owner's request; shades replaced
+  letters at the owner's request.)
 
 ## R8 Graphical interface
 
