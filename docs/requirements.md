@@ -114,9 +114,12 @@ reported together in `.problems`.
 
 - **R8.1** `python -m meowdoku.gui` opens a window built with tkinter
   (standard library).
-- **R8.2** The board is a simple colored grid in the style of the Meowdoku
-  app: each region has its own fill color, with thick borders between regions
-  and thin lines inside them.
+- **R8.2** The board looks like the Meowdoku app's: rounded colored tiles
+  with white gaps between them, on a white rounded card on a beige page. Each
+  region has its own tile color, and regions are told apart by color only (no
+  grid lines or region borders). ✕ marks are thick white X's and cats are
+  black and white cat faces, as in the game. (Changed at the owner's request
+  from a grid with thick region borders.)
 - **R8.3** Puzzles imported from a screenshot keep their original region
   colors. Text puzzles use a built-in palette of at least 16 distinguishable
   colors, assigned in order of each region's first appearance (row-major).

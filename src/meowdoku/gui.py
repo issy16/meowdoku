@@ -1,7 +1,11 @@
-"""Tkinter window: a colored Meowdoku board with Open, Hint, Check, Solve, Reset (R8).
+"""Tkinter window: a Meowdoku board with Open, Hint, Check, Solve, Reset (R8).
 
 Run with `python -m meowdoku.gui [SCREENSHOT]`. This module only draws and
 handles events; all game logic lives in game.py (R8.7).
+
+The board looks like the game's (R8.2, docs/algorithm.md): rounded colored
+tiles with white gaps on a white card, on a beige page. Regions are told
+apart by tile color only.
 """
 
 import argparse
@@ -12,26 +16,37 @@ from tkinter import filedialog, messagebox
 from types import TracebackType
 
 from meowdoku.game import EXAMPLE_PUZZLE, GameSession, Highlight
-from meowdoku.puzzle import Cell, MeowdokuError, Puzzle
+from meowdoku.puzzle import Cell, MeowdokuError
 
 BOARD_PIXELS = 520
 MIN_CELL_PIXELS = 28
 MAX_CELL_PIXELS = 72
-MARGIN = 10
+MARGIN = 10  # page space around the card
+CARD_PADDING = 12  # white card space around the tiles
+BOARD_INSET = MARGIN + CARD_PADDING  # canvas offset of the first tile
+CARD_RADIUS = 16
 
-THIN_LINE = ("#9a9a9a", 1)
-THICK_LINE = ("#2b2b2b", 3)
-MARK_COLOR = "#2b2b2b"
-REVEALED_COLOR = "#8a8a8a"
-EYE_COLOR = "#ffffff"
+# Proportions measured on the game (105 px tiles, 9 px gaps, 8 px corners).
+GAP_SHARE = 0.08  # white gap between tiles, as a share of a cell
+# Tile corner radius, as a share of a cell. Tk's smoothed corners bend less
+# than a true arc, so this is about twice the game's radius to look the same.
+CORNER_SHARE = 0.16
+
+# Colors sampled from the game's screenshots.
+PAGE_COLOR = "#f7f2ef"
+CARD_COLOR = "#ffffff"
+TEXT_COLOR = "#935a5a"
+CROSS_COLOR = "#ffffff"
+CAT_FUR = "#262626"
+REVEALED_FUR = "#9a9a9a"
+CAT_FACE = "#ffffff"
+CAT_NOSE = "#f4a3b4"
 HIGHLIGHT_COLORS = {Highlight.HINT: "#f5a700", Highlight.PROBLEM: "#d62828"}
 SOLVED_TEXT_COLOR = "#2e7d32"
 MESSAGE_FONT = ("Helvetica", 14)
 
-GridPoint = tuple[int, int]
-"""A corner of the grid as (x, y) = (column, row)."""
-
-Segment = tuple[GridPoint, GridPoint]
+Box = tuple[float, float, float, float]
+"""A rectangle on the canvas as (left, top, right, bottom)."""
 
 
 # Pure layout helpers (testable without a display)
@@ -42,26 +57,36 @@ def cell_pixels(size: int) -> int:
     return max(MIN_CELL_PIXELS, min(MAX_CELL_PIXELS, BOARD_PIXELS // size))
 
 
-def region_boundaries(puzzle: Puzzle) -> list[Segment]:
-    """Edges between neighboring cells of different regions, drawn thick (R8.2)."""
-    segments = []
-    for row, col in puzzle.cells():
-        region = puzzle.region_of((row, col))
-        if col + 1 < puzzle.size and puzzle.region_of((row, col + 1)) != region:
-            segments.append(((col + 1, row), (col + 1, row + 1)))
-        if row + 1 < puzzle.size and puzzle.region_of((row + 1, col)) != region:
-            segments.append(((col, row + 1), (col + 1, row + 1)))
-    return segments
+def tile_gap(cell_size: int) -> int:
+    """White space between neighboring tiles, at least 2 pixels."""
+    return max(2, round(cell_size * GAP_SHARE))
 
 
 def cell_at(x: int, y: int, cell_size: int, board_size: int) -> Cell | None:
     """The cell under a canvas point, or None outside the board."""
-    if x < MARGIN or y < MARGIN:
+    if x < BOARD_INSET or y < BOARD_INSET:
         return None
-    row, col = (y - MARGIN) // cell_size, (x - MARGIN) // cell_size
+    row, col = (y - BOARD_INSET) // cell_size, (x - BOARD_INSET) // cell_size
     if row < board_size and col < board_size:
         return (row, col)
     return None
+
+
+def rounded_rect_points(box: Box, radius: float) -> list[float]:
+    """Polygon points that tkinter's smooth=True draws as a rounded rectangle.
+
+    The points where each straight edge starts and ends are doubled, so the
+    spline runs straight along the edges and bends only around the corner
+    points. The radius is capped at half the shorter side.
+    """
+    x0, y0, x1, y1 = box
+    r = max(0.0, min(radius, (x1 - x0) / 2, (y1 - y0) / 2))
+    return [
+        x0 + r, y0, x0 + r, y0, x1 - r, y0, x1 - r, y0, x1, y0,
+        x1, y0 + r, x1, y0 + r, x1, y1 - r, x1, y1 - r, x1, y1,
+        x1 - r, y1, x1 - r, y1, x0 + r, y1, x0 + r, y1, x0, y1,
+        x0, y1 - r, x0, y1 - r, x0, y0 + r, x0, y0 + r, x0, y0,
+    ]  # fmt: skip
 
 
 # The window
@@ -73,9 +98,10 @@ class MeowdokuApp:
         self.session = session
         root.title("Meowdoku")
         root.resizable(False, False)
+        root.configure(background=PAGE_COLOR)
         root.report_callback_exception = self._report_error  # type: ignore[assignment]
 
-        toolbar = tk.Frame(root, padx=MARGIN, pady=MARGIN)
+        toolbar = tk.Frame(root, padx=MARGIN, pady=MARGIN, background=PAGE_COLOR)
         toolbar.pack(fill="x")
         for label, command in (
             ("Open…", self.open_file),
@@ -84,14 +110,22 @@ class MeowdokuApp:
             ("Solve", lambda: self._run(self.session.solve)),
             ("Reset", lambda: self._run(self.session.reset)),
         ):
-            tk.Button(toolbar, text=label, command=command).pack(side="left", padx=(0, 6))
+            tk.Button(
+                toolbar, text=label, command=command, highlightbackground=PAGE_COLOR
+            ).pack(side="left", padx=(0, 6))
 
-        self.canvas = tk.Canvas(root, highlightthickness=0, background="white")
-        self.canvas.pack(padx=MARGIN)
+        self.canvas = tk.Canvas(root, highlightthickness=0, background=PAGE_COLOR)
+        self.canvas.pack()
         self.canvas.bind("<Button-1>", self._on_click)
 
         self.message = tk.Label(
-            root, font=MESSAGE_FONT, justify="left", anchor="w", padx=MARGIN, pady=MARGIN
+            root,
+            font=MESSAGE_FONT,
+            justify="left",
+            anchor="w",
+            padx=MARGIN,
+            pady=MARGIN,
+            background=PAGE_COLOR,
         )
         self.message.pack(fill="x")
         self.redraw()
@@ -133,56 +167,52 @@ class MeowdokuApp:
     def _cell_size(self) -> int:
         return cell_pixels(self.session.puzzle.size)
 
-    def _corner(self, point: GridPoint) -> tuple[int, int]:
-        x, y = point
-        return (MARGIN + x * self._cell_size, MARGIN + y * self._cell_size)
-
-    def _cell_box(self, cell: Cell, inset: float = 0) -> tuple[float, float, float, float]:
+    def _cell_box(self, cell: Cell, inset: float = 0) -> Box:
         row, col = cell
-        x0, y0 = self._corner((col, row))
         size = self._cell_size
+        x0, y0 = BOARD_INSET + col * size, BOARD_INSET + row * size
         return (x0 + inset, y0 + inset, x0 + size - inset, y0 + size - inset)
 
+    def _tile_box(self, cell: Cell) -> Box:
+        """The colored tile inside a cell, leaving half the gap on each side."""
+        return self._cell_box(cell, inset=tile_gap(self._cell_size) / 2)
+
+    def _rounded_rect(self, box: Box, radius: float, **options: object) -> None:
+        self.canvas.create_polygon(rounded_rect_points(box, radius), smooth=True, **options)
+
     def redraw(self) -> None:
-        puzzle = self.session.puzzle
-        board = puzzle.size * self._cell_size
-        self.canvas.configure(width=board + 2 * MARGIN, height=board + 2 * MARGIN)
+        board = self.session.puzzle.size * self._cell_size
+        self.canvas.configure(width=board + 2 * BOARD_INSET, height=board + 2 * BOARD_INSET)
         self.canvas.delete("all")
-        self._draw_cells()
-        self._draw_grid_lines()
+        self._draw_card(board)
+        self._draw_tiles()
         self._draw_highlights()
         self._draw_marks()
         self.message.configure(
             text=self.session.message,
-            foreground=SOLVED_TEXT_COLOR if self.session.is_solved else "black",
-            wraplength=board,
+            foreground=SOLVED_TEXT_COLOR if self.session.is_solved else TEXT_COLOR,
+            wraplength=board + 2 * CARD_PADDING,
         )
 
-    def _draw_cells(self) -> None:
+    def _draw_card(self, board: int) -> None:
+        far = BOARD_INSET + board + CARD_PADDING
+        self._rounded_rect((MARGIN, MARGIN, far, far), CARD_RADIUS, fill=CARD_COLOR)
+
+    def _draw_tiles(self) -> None:
+        radius = self._cell_size * CORNER_SHARE
         for cell in self.session.puzzle.cells():
             color = self.session.colors[self.session.puzzle.region_of(cell)]
-            self.canvas.create_rectangle(*self._cell_box(cell), fill=color, width=0)
-
-    def _draw_grid_lines(self) -> None:
-        n = self.session.puzzle.size
-        color, width = THIN_LINE
-        for i in range(1, n):
-            self.canvas.create_line(*self._corner((i, 0)), *self._corner((i, n)), fill=color, width=width)
-            self.canvas.create_line(*self._corner((0, i)), *self._corner((n, i)), fill=color, width=width)
-        color, width = THICK_LINE
-        for start, end in region_boundaries(self.session.puzzle):
-            self.canvas.create_line(
-                *self._corner(start), *self._corner(end), fill=color, width=width, capstyle="projecting"
-            )
-        self.canvas.create_rectangle(*self._corner((0, 0)), *self._corner((n, n)), outline=color, width=width)
+            self._rounded_rect(self._tile_box(cell), radius, fill=color)
 
     def _draw_highlights(self) -> None:
+        """A colored ring in the white gap around each highlighted tile."""
         style = self.session.highlight_style
         if style is None:
             return
+        radius = self._cell_size * CORNER_SHARE + tile_gap(self._cell_size) / 2
         for cell in self.session.highlight:
-            self.canvas.create_rectangle(
-                *self._cell_box(cell, inset=3), outline=HIGHLIGHT_COLORS[style], width=3
+            self._rounded_rect(
+                self._cell_box(cell, inset=1.5), radius, fill="", outline=HIGHLIGHT_COLORS[style], width=3
             )
 
     def _draw_marks(self) -> None:
@@ -190,28 +220,43 @@ class MeowdokuApp:
         for cell in state.crosses:
             self._draw_cross(cell)
         for cell in state.cats:
-            self._draw_cat(cell, MARK_COLOR)
+            self._draw_cat(cell, CAT_FUR)
         for cell in self.session.revealed - state.cats:
-            self._draw_cat(cell, REVEALED_COLOR)
+            self._draw_cat(cell, REVEALED_FUR)
 
     def _draw_cross(self, cell: Cell) -> None:
-        x0, y0, x1, y1 = self._cell_box(cell, inset=self._cell_size * 0.32)
+        """A thick white X, like the game's."""
+        x0, y0, x1, y1 = self._tile_box(cell)
+        inset = (x1 - x0) * 0.25
+        x0, y0, x1, y1 = x0 + inset, y0 + inset, x1 - inset, y1 - inset
+        width = max(3, round(self._cell_size * 0.11))
         for line in ((x0, y0, x1, y1), (x0, y1, x1, y0)):
-            self.canvas.create_line(*line, fill=MARK_COLOR, width=3, capstyle="round")
+            self.canvas.create_line(*line, fill=CROSS_COLOR, width=width, capstyle="round")
 
-    def _draw_cat(self, cell: Cell, color: str) -> None:
-        """A simple cat face: round head, two pointed ears, two eyes."""
-        x0, y0, _, _ = self._cell_box(cell)
-        s = self._cell_size
+    def _draw_cat(self, cell: Cell, fur: str) -> None:
+        """A black and white cat face like the game's: dark head and ears, white muzzle, round eyes."""
+        x0, y0, x1, _ = self._tile_box(cell)
+        s = x1 - x0
 
         def at(fx: float, fy: float) -> tuple[float, float]:
             return (x0 + fx * s, y0 + fy * s)
 
-        self.canvas.create_polygon(*at(0.24, 0.50), *at(0.27, 0.16), *at(0.47, 0.34), fill=color)
-        self.canvas.create_polygon(*at(0.76, 0.50), *at(0.73, 0.16), *at(0.53, 0.34), fill=color)
-        self.canvas.create_oval(*at(0.22, 0.28), *at(0.78, 0.82), fill=color, width=0)
-        self.canvas.create_oval(*at(0.36, 0.46), *at(0.44, 0.56), fill=EYE_COLOR, width=0)
-        self.canvas.create_oval(*at(0.56, 0.46), *at(0.64, 0.56), fill=EYE_COLOR, width=0)
+        def ear(side: int, fx: float, fy: float) -> tuple[float, float]:
+            """A point of the right ear (side 1), or its mirror image on the left (side -1)."""
+            return at(0.5 + side * (fx - 0.5), fy)
+
+        canvas = self.canvas
+        for side in (1, -1):
+            canvas.create_polygon(*ear(side, 0.88, 0.52), *ear(side, 0.82, 0.06), *ear(side, 0.52, 0.28), fill=fur)
+            canvas.create_polygon(
+                *ear(side, 0.80, 0.34), *ear(side, 0.79, 0.16), *ear(side, 0.65, 0.27), fill=CAT_NOSE
+            )
+        canvas.create_oval(*at(0.12, 0.20), *at(0.88, 0.90), fill=fur, width=0)
+        canvas.create_oval(*at(0.27, 0.54), *at(0.73, 0.90), fill=CAT_FACE, width=0)
+        for cx in (0.35, 0.65):
+            canvas.create_oval(*at(cx - 0.075, 0.44), *at(cx + 0.075, 0.59), fill=CAT_FACE, width=0)
+            canvas.create_oval(*at(cx - 0.04, 0.48), *at(cx + 0.04, 0.56), fill=fur, width=0)
+        canvas.create_oval(*at(0.465, 0.62), *at(0.535, 0.67), fill=CAT_NOSE, width=0)
 
 
 # Entry point

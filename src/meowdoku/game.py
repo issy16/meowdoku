@@ -20,25 +20,27 @@ from meowdoku.state import BoardState, Mark
 
 EXAMPLE_PUZZLE = "AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"
 
-# Soft colors in the style of the Meowdoku app; at least MAX_SIZE (16) of them (R8.3).
+# At least MAX_SIZE (16) colors (R8.3). The first ten are the real game's tile
+# colors (measured from tests/fixtures/screenshots/IMG_7128.jpg), so text
+# puzzles look like the game; the rest are extra colors for bigger boards.
 # The comments are the names hints use for them (colors.NAMED_COLORS).
 PALETTE = (
-    "#f4a7a3",  # red
-    "#a8d5ba",  # green
-    "#a7c7f4",  # blue
-    "#f9d98c",  # yellow
-    "#c9b3f2",  # purple
-    "#f7c19b",  # orange
+    "#9dd387",  # light green
+    "#eb9fe0",  # pink
+    "#f6da90",  # yellow
+    "#5aa6bd",  # blue
+    "#eda068",  # orange
+    "#877ad4",  # purple
+    "#9e704f",  # brown
+    "#c77490",  # rose
+    "#c7a635",  # mustard
+    "#488b58",  # dark green
     "#9fdcdc",  # teal
     "#e0e48f",  # lime
-    "#f2b5d8",  # pink
     "#bfc9d9",  # gray
-    "#d9b99b",  # tan
-    "#b5e3a1",  # light green
     "#8fc1e3",  # sky blue
     "#e8a0a0",  # coral
-    "#cfe8f7",  # pale blue
-    "#d4c4a8",  # beige
+    "#d9b99b",  # tan
 )
 
 SOLVED_MESSAGE = "Solved!"

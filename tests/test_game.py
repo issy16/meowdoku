@@ -86,7 +86,7 @@ def test_r8_5_hint_highlights_and_explains_without_marking() -> None:
     assert session.state == BoardState.empty(5)
     assert session.highlight_style is Highlight.HINT
     assert session.highlight == {(0, 4), (1, 4), (2, 4), (3, 4), (4, 4)}
-    assert session.message.startswith("Every cell left in column 5 is in the green region")
+    assert session.message.startswith("Every cell left in column 5 is in the pink region")
 
 
 def test_r8_5_hint_on_mistake_uses_problem_highlight() -> None:
@@ -155,8 +155,8 @@ def test_r7_8_hint_names_regions_by_color() -> None:
     session = new_session()
     session.hint()
     assert session.message == (
-        "Every cell left in column 5 is in the green region, so the cat of the green region "
-        "must be in column 5. The other cells in the green region can't have a cat."
+        "Every cell left in column 5 is in the pink region, so the cat of the pink region "
+        "must be in column 5. The other cells in the pink region can't have a cat."
     )
 
 
@@ -165,7 +165,7 @@ def test_r7_8_check_names_regions_by_color() -> None:
     place_cat(session, (0, 1))
     place_cat(session, (2, 0))
     session.check()
-    assert session.message == "1 problem: the red region has 2 cats; it needs exactly one."
+    assert session.message == "1 problem: the light green region has 2 cats; it needs exactly one."
 
 
 # R8.6 Solved
