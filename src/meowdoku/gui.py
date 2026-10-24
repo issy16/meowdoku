@@ -37,10 +37,9 @@ PAGE_COLOR = "#f7f2ef"
 CARD_COLOR = "#ffffff"
 TEXT_COLOR = "#935a5a"
 CROSS_COLOR = "#ffffff"
-CAT_FUR = "#262626"
-REVEALED_FUR = "#9a9a9a"
-CAT_FACE = "#ffffff"
-CAT_NOSE = "#f4a3b4"
+CAT_INK = "#262626"
+REVEALED_INK = "#9a9a9a"
+CAT_WHITE = "#ffffff"
 HIGHLIGHT_COLORS = {Highlight.HINT: "#f5a700", Highlight.PROBLEM: "#d62828"}
 SOLVED_TEXT_COLOR = "#2e7d32"
 MESSAGE_FONT = ("Helvetica", 14)
@@ -220,9 +219,9 @@ class MeowdokuApp:
         for cell in state.crosses:
             self._draw_cross(cell)
         for cell in state.cats:
-            self._draw_cat(cell, CAT_FUR)
+            self._draw_cat(cell, CAT_INK)
         for cell in self.session.revealed - state.cats:
-            self._draw_cat(cell, REVEALED_FUR)
+            self._draw_cat(cell, REVEALED_INK)
 
     def _draw_cross(self, cell: Cell) -> None:
         """A thick white X, like the game's."""
@@ -233,30 +232,51 @@ class MeowdokuApp:
         for line in ((x0, y0, x1, y1), (x0, y1, x1, y0)):
             self.canvas.create_line(*line, fill=CROSS_COLOR, width=width, capstyle="round")
 
-    def _draw_cat(self, cell: Cell, fur: str) -> None:
-        """A black and white cat face like the game's: dark head and ears, white muzzle, round eyes."""
+    def _draw_cat(self, cell: Cell, ink: str) -> None:
+        """A line-drawn lucky cat (maneki-neko) face: white with dark outlines.
+
+        Positions are shares of the tile. The ears come first so the head
+        covers their bases.
+        """
         x0, y0, x1, _ = self._tile_box(cell)
         s = x1 - x0
+        line = max(1.0, s * 0.045)
+        thin = line * 0.8
 
         def at(fx: float, fy: float) -> tuple[float, float]:
             return (x0 + fx * s, y0 + fy * s)
 
-        def ear(side: int, fx: float, fy: float) -> tuple[float, float]:
-            """A point of the right ear (side 1), or its mirror image on the left (side -1)."""
-            return at(0.5 + side * (fx - 0.5), fy)
+        def shape(*points: tuple[float, float]) -> list[float]:
+            return [coordinate for point in points for coordinate in at(*point)]
+
+        def mirrored(*points: tuple[float, float]) -> list[float]:
+            """The same shape reflected to the other side of the face."""
+            return shape(*((1 - fx, fy) for fx, fy in points))
 
         canvas = self.canvas
-        for side in (1, -1):
-            canvas.create_polygon(*ear(side, 0.88, 0.52), *ear(side, 0.82, 0.06), *ear(side, 0.52, 0.28), fill=fur)
-            canvas.create_polygon(
-                *ear(side, 0.80, 0.34), *ear(side, 0.79, 0.16), *ear(side, 0.65, 0.27), fill=CAT_NOSE
-            )
-        canvas.create_oval(*at(0.12, 0.20), *at(0.88, 0.90), fill=fur, width=0)
-        canvas.create_oval(*at(0.27, 0.54), *at(0.73, 0.90), fill=CAT_FACE, width=0)
-        for cx in (0.35, 0.65):
-            canvas.create_oval(*at(cx - 0.075, 0.44), *at(cx + 0.075, 0.59), fill=CAT_FACE, width=0)
-            canvas.create_oval(*at(cx - 0.04, 0.48), *at(cx + 0.04, 0.56), fill=fur, width=0)
-        canvas.create_oval(*at(0.465, 0.62), *at(0.535, 0.67), fill=CAT_NOSE, width=0)
+        outlined = {"fill": CAT_WHITE, "outline": ink, "width": line}
+        left_ear = ((0.10, 0.52), (0.17, 0.04), (0.46, 0.28))
+        inner_ear = ((0.19, 0.30), (0.20, 0.13), (0.33, 0.24))
+        for side in (shape, mirrored):
+            canvas.create_polygon(side(*left_ear), **outlined)
+        canvas.create_oval(*at(0.07, 0.22), *at(0.93, 0.94), **outlined)
+        for side in (shape, mirrored):
+            canvas.create_line(side(*inner_ear), fill=ink, width=thin)
+        # Forehead stripes
+        for fx in (0.44, 0.50, 0.56):
+            canvas.create_line(shape((fx, 0.28), (fx, 0.38)), fill=ink, width=thin)
+        # Almond eyes with round pupils
+        for left in (0.21, 0.59):
+            canvas.create_oval(*at(left, 0.48), *at(left + 0.20, 0.61), outline=ink, width=thin)
+            canvas.create_oval(*at(left + 0.065, 0.49), *at(left + 0.135, 0.60), fill=ink, width=0)
+        # Nose and mouth
+        canvas.create_polygon(shape((0.46, 0.67), (0.54, 0.67), (0.50, 0.71)), fill=ink, outline=ink)
+        canvas.create_line(
+            shape((0.41, 0.75), (0.455, 0.78), (0.50, 0.74), (0.545, 0.78), (0.59, 0.75)),
+            fill=ink,
+            width=thin,
+            smooth=True,
+        )
 
 
 # Entry point
