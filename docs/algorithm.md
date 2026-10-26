@@ -226,7 +226,12 @@ opened.
 
 1. **Find the board (`find_board`).** Read the page color from the image
    corners. Tile pixels are those that differ by more than 40 in some color
-   channel from white, the page color, and the window's two ring colors.
+   channel from white and the page color, and by more than 24 from the
+   window's two ring colors, both as drawn and as macOS screenshots show
+   them (color matching moves the orange ring by up to 59). Rings get the
+   tighter limit because the game's mustard tile, (205, 164, 0), is exactly
+   40 from the drawn orange; the closest game tile to any ring color is 33
+   away.
    Rows where at least 30% of the
    pixels are tile pixels form horizontal bands. Weaker rows (at least 4%)
    between two such rows join them, since they cross tiles covered by cat
@@ -288,15 +293,18 @@ Step 5 was added at the same time, when marks went from ignored to read.
 
 **Status.**
 
-- **Real screenshots:** all three read correctly, regions and marks.
+- **Real screenshots:** all four read correctly, regions and marks.
   - `IMG_7128.jpg`: a cropped 10×10 empty board.
   - `IMG_7114.PNG`: a full 1206×2622 phone screenshot of another 10×10
     empty board, with the header, rule card, buttons, and an ad banner.
   - `IMG_7117.PNG`: a full phone screenshot of a 10×10 game in progress,
     with 5 cats and 75 ✕ marks.
+  - `IMG_7277.png`: a full phone screenshot of an empty 10×10 board (level
+    302) with a mustard column, which import used to drop as the window's
+    orange hint ring, so no square board was found.
 
   All expected grids and marks were transcribed by Claude and checked
-  against the game by the owner. Each grid also has exactly one solution. In `IMG_7117`, all 5 transcribed cats are in
+  against the game by the owner (`IMG_7277`'s grid not yet). Each grid also has exactly one solution. In `IMG_7117`, all 5 transcribed cats are in
   that solution and no ✕ is on a solution cell. Copies of both also read correctly when shrunk to a third
   of their size or saved as JPEG quality 40. Each takes about 0.5 s.
 - **Synthetic screenshots:** drawn in the measured style, from 4×4 to 12×12,

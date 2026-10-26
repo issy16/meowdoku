@@ -1,0 +1,13 @@
+# Level 302, an empty 10x10 board. Its mustard column (205, 164, 0) is
+# exactly 40 from the window's drawn orange ring, which import used to skip.
+# Check: this grid has exactly one solution (meowdoku --count-all).
+AABBAAAAAA
+CABBBDDEEA
+CAFBDDDEEA
+CAFFDEEEEA
+CAFFGGHHHA
+CAFFGGHHHA
+CAAFGGGGGA
+CAAAAAAAAA
+CAIIIAJJJJ
+CAAIAAAAAA

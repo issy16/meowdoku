@@ -12,6 +12,8 @@ from meowdoku.gui import HIGHLIGHT_COLORS
 from meowdoku.image_import import (
     COLOR_TOLERANCE,
     HIGHLIGHT_RING_COLORS,
+    RING_CONTRAST,
+    SCREENSHOT_RING_COLORS,
     ImageImportError,
     ImportedPuzzle,
     import_screenshot,
@@ -246,11 +248,16 @@ def test_r9_6_ring_colors_match_the_window() -> None:
     assert {hex_to_rgb(color) for color in HIGHLIGHT_COLORS.values()} == set(HIGHLIGHT_RING_COLORS)
 
 
+# Tile colors read from the real game's screenshots, including IMG_7277's mustard yellow,
+# which is exactly TILE_CONTRAST (40) from the drawn orange ring.
+GAME_TILE_COLORS = ["#cda400", "#fa9d5c"]
+
+
 def test_r9_6_no_tile_color_is_mistaken_for_a_ring() -> None:
-    """Rings are left out of the tile mask, so no tile may come within its contrast of a ring."""
-    for color in PALETTE:
-        for ring in HIGHLIGHT_RING_COLORS:
-            assert max(abs(a - b) for a, b in zip(hex_to_rgb(color), ring)) > 40, color
+    """Rings are left out of the tile mask, so no tile may come within RING_CONTRAST of a ring."""
+    for color in list(PALETTE) + GAME_TILE_COLORS:
+        for ring in HIGHLIGHT_RING_COLORS + SCREENSHOT_RING_COLORS:
+            assert max(abs(a - b) for a, b in zip(hex_to_rgb(color), ring)) > RING_CONTRAST, color
 
 
 def test_r9_6_transparent_window_shadow_is_laid_over_white(tmp_path: Path) -> None:

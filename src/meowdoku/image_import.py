@@ -52,8 +52,14 @@ SOLUTION_CAT_SHARE = 0.15
 CROSS_SHARE = 0.12  # this much white in the middle of a tile means a ✕
 COLOR_BIN = 12  # colors closer than this per channel count as the same color
 COLOR_TOLERANCE = 28  # max RGB distance between cells of one region
-# The window's hint (orange) and problem (red) rings, as in gui.HIGHLIGHT_COLORS; no tile color is near them
+# The window's hint (orange) and problem (red) rings: as drawn (gui.HIGHLIGHT_COLORS), and as
+# macOS screenshots show them after color matching (measured on the gui-* fixtures).
 HIGHLIGHT_RING_COLORS: tuple[RGB, ...] = ((0xF5, 0xA7, 0x00), (0xD6, 0x28, 0x28))
+SCREENSHOT_RING_COLORS: tuple[RGB, ...] = ((234, 169, 59), (197, 58, 50))
+# Rings are left out within this much of their colors. It's tighter than TILE_CONTRAST:
+# the game's mustard tile (205, 164, 0) is exactly 40 from the drawn orange, and the
+# closest game tile to any ring color is 33 from it (IMG_7117's orange).
+RING_CONTRAST = 24
 
 
 
@@ -155,8 +161,8 @@ def tile_mask(image: Image.Image) -> Image.Image:
     the gaps around tiles.
     """
     mask = _darker(_far_from(image, WHITE), _far_from(image, _page_color(image)))
-    for ring in HIGHLIGHT_RING_COLORS:
-        mask = _darker(mask, _far_from(image, ring))
+    for ring in HIGHLIGHT_RING_COLORS + SCREENSHOT_RING_COLORS:
+        mask = _darker(mask, _far_from(image, ring, RING_CONTRAST))
     return mask
 
 
@@ -251,12 +257,12 @@ def _page_color(image: Image.Image) -> RGB:
     return Counter(corners).most_common(1)[0][0]
 
 
-def _far_from(image: Image.Image, color: RGB) -> Image.Image:
-    """A mask that is white where some channel differs from `color` by more than TILE_CONTRAST."""
+def _far_from(image: Image.Image, color: RGB, contrast: int = TILE_CONTRAST) -> Image.Image:
+    """A mask that is white where some channel differs from `color` by more than `contrast`."""
     difference = ImageChops.difference(image, Image.new("RGB", image.size, color))
     red, green, blue = difference.split()
     largest = ImageChops.lighter(ImageChops.lighter(red, green), blue)
-    return largest.point(lambda value: 255 if value > TILE_CONTRAST else 0)
+    return largest.point(lambda value: 255 if value > contrast else 0)
 
 
 def _darker(first: Image.Image, second: Image.Image) -> Image.Image:
