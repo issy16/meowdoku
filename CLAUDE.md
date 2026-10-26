@@ -44,7 +44,8 @@ src/meowdoku/
   solver.py        backtracking search (iter_solutions, solve)
   state.py         BoardState: player's cats and ✕ marks
   deduce.py        deduction rules D1–D5 (see docs/algorithm.md)
-  hints.py         next_hint: violations, mistakes, deductions (never reveals answers)
+  assume.py        D6: contradiction by assumption, built on D1–D5
+  hints.py         next_hint: violations, mistakes, D1–D6 (never reveals answers)
   image_import.py  screenshot -> text grid, region colors, cats and ✕ marks (Pillow)
   colors.py        plain color names for regions ("the pink region")
   cli.py           thin command-line wrapper
@@ -57,14 +58,15 @@ Allowed imports (everything may import `puzzle`):
 - `cli` -> `image_import`, `parser`, `solver`
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
 - `game` -> `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
-- `hints` -> `deduce`, `rules`, `solver`, `state`
+- `hints` -> `assume`, `deduce`, `rules`, `solver`, `state`
+- `assume` -> `deduce`, `state`
 - `image_import` -> `parser`, `state`
 - `deduce`, `rules` -> `state`
 
 - `rules.py` and `solver.py` must never import each other. The validator is an
   independent check on the solver.
-- `deduce.py` must never import `solver.py`. Hints are checked against
-  solver output, so they can't depend on it.
+- `deduce.py` and `assume.py` must never import `solver.py`. Hints are
+  checked against solver output, so they can't depend on it.
 - `gui.py` holds no game logic (R8.7).
 - An invalid `Puzzle` must be impossible to construct: validate in `__post_init__`.
 - A well-formed puzzle with no solution is **not** an error. Report it as

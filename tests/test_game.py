@@ -130,6 +130,15 @@ def test_r8_11_apply_places_the_cat_and_judges_it() -> None:
     assert crossed_out_by(session.puzzle, (0, 4)) <= session.state.crosses
 
 
+def test_r8_11_apply_works_for_a_d6_hint() -> None:
+    """R7.9: on this board only D6 finds a step, a cat at (1, 1) leading nowhere."""
+    session = new_session("ABCD\nABCD\nABCD\nABCD")
+    session.hint()
+    assert session.message.startswith("If this cell had a cat, ")
+    session.apply_hint()
+    assert session.state.crosses == {(1, 1)}
+
+
 def test_r8_11_mistakes_have_nothing_to_apply() -> None:
     session = new_session()
     start_with_cats(session, (0, 0))
@@ -441,7 +450,7 @@ def test_r8_12_stepping_to_the_end_solves_the_puzzle() -> None:
 
 
 def test_r8_12_stops_when_no_step_is_left() -> None:
-    session = new_session("ABCD\nABCD\nABCD\nABCD")  # several solutions, no forced first step
+    session = new_session("\n".join(["ABCDEF"] * 6))  # 90 solutions, no step even D6 can prove
     session.step()
     assert not session.stepping
     assert session.message == "No simple step found; try Solve."

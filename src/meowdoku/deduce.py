@@ -1,14 +1,16 @@
 """Logical deduction rules D1-D5 used for hints (see docs/algorithm.md).
 
+D6, which builds on these rules, lives in assume.py.
+
 Each rule only concludes what must hold in every solution that matches the
 current marks, so hints never contradict the solution (R7.7). This module
 must never import the solver: hints are tested against solver output.
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
-from itertools import combinations
+from functools import cached_property, lru_cache
 
 from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.state import BoardState
@@ -20,6 +22,7 @@ class Technique(Enum):
     CONFINEMENT = "D3"
     PIGEONHOLE = "D4"
     BLOCKING = "D5"
+    CONTRADICTION = "D6"
 
 
 @dataclass(frozen=True)
@@ -39,7 +42,9 @@ class Unit:
 class Deduction:
     """One logical step: the reasoning and what it lets the player mark.
 
-    Exactly one of `place_cat` and `cross_out` is set.
+    Exactly one of `place_cat` and `cross_out` is set. Only D6 sets `steps`,
+    its explanation one line at a time, and `trace`, the D1-D5 deductions
+    that followed its assumption.
     """
 
     technique: Technique
@@ -47,30 +52,41 @@ class Deduction:
     reason: str
     place_cat: Cell | None = None
     cross_out: frozenset[Cell] = field(default_factory=frozenset)
+    steps: tuple[str, ...] = ()
+    trace: tuple["Deduction", ...] = ()
 
 
 # Units
+#
+# These depend only on the puzzle, so they're cached: D6 runs D1-D5 many
+# times on the same puzzle.
+
+PUZZLE_CACHE_SIZE = 32
 
 
-def rows(puzzle: Puzzle) -> list[Unit]:
-    return [
+@lru_cache(maxsize=PUZZLE_CACHE_SIZE)
+def rows(puzzle: Puzzle) -> tuple[Unit, ...]:
+    return tuple(
         Unit(f"row {row + 1}", frozenset((row, col) for col in range(puzzle.size)))
         for row in range(puzzle.size)
-    ]
+    )
 
 
-def columns(puzzle: Puzzle) -> list[Unit]:
-    return [
+@lru_cache(maxsize=PUZZLE_CACHE_SIZE)
+def columns(puzzle: Puzzle) -> tuple[Unit, ...]:
+    return tuple(
         Unit(f"column {col + 1}", frozenset((row, col) for row in range(puzzle.size)))
         for col in range(puzzle.size)
-    ]
+    )
 
 
-def regions(puzzle: Puzzle) -> list[Unit]:
-    return [Unit(f"region {label!r}", cells) for label, cells in puzzle.region_cells.items()]
+@lru_cache(maxsize=PUZZLE_CACHE_SIZE)
+def regions(puzzle: Puzzle) -> tuple[Unit, ...]:
+    return tuple(Unit(f"region {label!r}", cells) for label, cells in puzzle.region_cells.items())
 
 
-def all_units(puzzle: Puzzle) -> list[Unit]:
+@lru_cache(maxsize=PUZZLE_CACHE_SIZE)
+def all_units(puzzle: Puzzle) -> tuple[Unit, ...]:
     return rows(puzzle) + columns(puzzle) + regions(puzzle)
 
 
@@ -85,16 +101,19 @@ def has_cat(unit: Unit, state: BoardState) -> bool:
     return bool(unit.cells & state.cats)
 
 
+@lru_cache(maxsize=PUZZLE_CACHE_SIZE * 256)
 def ruled_out_by(puzzle: Puzzle, cat: Cell) -> frozenset[Cell]:
     """Cells that can't hold a cat if `cat` does: same row, column, or region, or touching."""
     row, col = cat
     region = puzzle.region_cells[puzzle.region_of(cat)]
-    nearby = {
+    lines = {(row, c) for c in range(puzzle.size)} | {(r, col) for r in range(puzzle.size)}
+    touching = {
         (r, c)
-        for r, c in puzzle.cells()
-        if r == row or c == col or (abs(r - row) <= 1 and abs(c - col) <= 1)
+        for r in range(row - 1, row + 2)
+        for c in range(col - 1, col + 2)
+        if puzzle.in_bounds((r, c))
     }
-    return frozenset((nearby | region) - {cat})
+    return frozenset((lines | touching | region) - {cat})
 
 
 # D1 Cat neighborhood
@@ -191,38 +210,81 @@ def pigeonhole(puzzle: Puzzle, state: BoardState) -> Deduction | None:
     Groups of 2 up to N/2 regions are tried; one region is D3.
     """
     candidates = [
-        (region, open_cells(region.cells, state))
+        _Candidate(region, open_cells(region.cells, state))
         for region in regions(puzzle)
         if not has_cat(region, state) and open_cells(region.cells, state)
     ]
+    open_by_line = (
+        [open_cells(line.cells, state) for line in rows(puzzle)],
+        [open_cells(line.cells, state) for line in columns(puzzle)],
+    )
     for group_size in range(2, puzzle.size // 2 + 1):
         for axis, line_word in ((0, "rows"), (1, "columns")):
-            for group in combinations(candidates, group_size):
-                deduction = _pigeonhole_for_group(puzzle, state, group, axis, line_word)
+            for group in _fitting_groups(candidates, group_size, axis):
+                deduction = _pigeonhole_for_group(group, open_by_line[axis], axis, line_word)
                 if deduction:
                     return deduction
     return None
 
 
+@dataclass(frozen=True)
+class _Candidate:
+    """A region without a cat, its open cells, and the rows and columns they lie in.
+
+    The lines are worked out once per call, since D6 runs D4 many times.
+    """
+
+    region: Unit
+    remaining: frozenset[Cell]
+
+    @cached_property
+    def lines(self) -> tuple[frozenset[int], frozenset[int]]:
+        return (
+            frozenset(row for row, _ in self.remaining),
+            frozenset(col for _, col in self.remaining),
+        )
+
+
+def _fitting_groups(
+    candidates: Sequence[_Candidate], group_size: int, axis: int
+) -> Iterator[tuple[_Candidate, ...]]:
+    """Groups of `group_size` candidates whose open cells lie in at most that many lines.
+
+    The same groups, in the same order, as itertools.combinations, without the
+    ones that can't fit: adding a region never takes away a line, so a group
+    that is already too wide is skipped with everything that would extend it.
+    """
+
+    def extend(
+        start: int, group: tuple[_Candidate, ...], lines: frozenset[int]
+    ) -> Iterator[tuple[_Candidate, ...]]:
+        if len(group) == group_size:
+            yield group
+            return
+        for index in range(start, len(candidates)):
+            wider = lines | candidates[index].lines[axis]
+            if len(wider) <= group_size:
+                yield from extend(index + 1, group + (candidates[index],), wider)
+
+    yield from extend(0, (), frozenset())
+
+
 def _pigeonhole_for_group(
-    puzzle: Puzzle,
-    state: BoardState,
-    group: Sequence[tuple[Unit, frozenset[Cell]]],
+    group: Sequence[_Candidate],
+    open_by_line: Sequence[frozenset[Cell]],
     axis: int,
     line_word: str,
 ) -> Deduction | None:
-    remaining = frozenset().union(*(cells for _, cells in group))
-    lines = sorted({cell[axis] for cell in remaining})
+    """`open_by_line[i]` holds the open cells of row i (or column i, for columns)."""
+    lines = frozenset().union(*(candidate.lines[axis] for candidate in group))
     if len(lines) != len(group):
         return None
-    group_cells = frozenset().union(*(region.cells for region, _ in group))
-    targets = frozenset(
-        cell
-        for cell in puzzle.cells()
-        if cell[axis] in lines and state.is_open(cell) and cell not in group_cells
-    )
-    if not targets:
+    # The group's open cells all lie in these lines, so any other open cell there is a target.
+    open_in_group = sum(len(candidate.remaining) for candidate in group)
+    if sum(len(open_by_line[line]) for line in lines) == open_in_group:
         return None
+    remaining = frozenset().union(*(candidate.remaining for candidate in group))
+    targets = frozenset().union(*(open_by_line[line] for line in lines)) - remaining
     return Deduction(
         Technique.PIGEONHOLE,
         remaining,
@@ -239,14 +301,17 @@ def blocking(puzzle: Puzzle, state: BoardState) -> Deduction | None:
 
     The basis is the cell itself, which the hint calls "here".
     """
-    units = [unit for unit in all_units(puzzle) if not has_cat(unit, state)]
+    units = [
+        (unit, open_cells(unit.cells, state))
+        for unit in all_units(puzzle)
+        if not has_cat(unit, state) and open_cells(unit.cells, state)
+    ]
     for cell in puzzle.cells():
         if not state.is_open(cell):
             continue
         ruled_out = ruled_out_by(puzzle, cell)
-        for unit in units:
-            remaining = open_cells(unit.cells, state)
-            if cell in unit.cells or not remaining:
+        for unit, remaining in units:
+            if cell in unit.cells:
                 continue
             if remaining <= ruled_out:
                 return Deduction(

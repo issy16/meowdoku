@@ -7,6 +7,7 @@ Hints never change the board and never reveal the solution.
 from dataclasses import dataclass, field
 from enum import Enum
 
+from meowdoku.assume import find_contradiction
 from meowdoku.deduce import Deduction, find_deduction
 from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.rules import Rule, RuleViolation, find_conflicts, is_valid_solution
@@ -56,7 +57,8 @@ def next_hint(puzzle: Puzzle, state: BoardState) -> Hint:
     if problem:
         return problem
 
-    deduction = find_deduction(puzzle, state)
+    # D6 is tried only when D1-D5 find nothing (R7.9).
+    deduction = find_deduction(puzzle, state) or find_contradiction(puzzle, state)
     if deduction:
         return Hint(HintKind.DEDUCTION, deduction.reason, deduction.basis, deduction)
     return Hint(HintKind.NO_SIMPLE_STEP, NO_SIMPLE_STEP_MESSAGE)

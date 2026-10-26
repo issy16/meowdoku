@@ -116,6 +116,13 @@ reported together in `.problems`.
   … "the darkest" for three or more. The command line keeps letters, since
   it shows the letter grid. (Added at the owner's request; shades replaced
   letters at the owner's request.)
+- **R7.9** If no rule from D1–D5 applies, D6 (contradiction by assumption)
+  tries each open cell as a cat and as empty, applying D1–D5 after each
+  assumption. If one assumption leads to a row, column, or region with no
+  room for its cat, or to two cats that break R1, the opposite mark is the
+  hint. A branch that ends without a contradiction proves nothing. The hint
+  explains the assumption, the steps that followed, and why it fails.
+  (Added at the owner's request.)
 
 ## R8 Graphical interface
 

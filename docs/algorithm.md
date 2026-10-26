@@ -108,7 +108,8 @@ Hints reason over a `BoardState` where each cell is a cat, ✕, or open
    that simply don't have a cat yet.
 3. **Mistakes:** if no solution matches the current marks, report it (R7.5).
 4. **Deduction rules D1–D5** below, simplest first.
-5. **Nothing found:** "No simple step found; try Solve." Hints never reveal
+5. **D6 contradiction by assumption** (R7.9), only when D1–D5 find nothing.
+6. **Nothing found:** "No simple step found; try Solve." Hints never reveal
    the solution (R7.6).
 
 | Rule | Name | Statement |
@@ -118,6 +119,7 @@ Hints reason over a `BoardState` where each cell is a cat, ✕, or open
 | D3 | Confinement | If a region's open cells all lie in one row, the other cells in that row are ✕ (same for columns). Reverse: if a row's open cells all lie in one region, the region's other cells are ✕ |
 | D4 | Pigeonhole | If k regions have all their open cells inside the same k rows, every other cell in those rows is ✕ (same for columns). D3 is the case k = 1 |
 | D5 | Blocking | An open cell is ✕ if a cat there would rule out every open cell of some other row, column, or region |
+| D6 | Contradiction by assumption | Suppose an open cell has a cat (or is empty) and apply D1–D5 until they stop. If that leaves a row, column, or region with no room for its cat, or puts two cats in one unit or next to each other, the cell gets the opposite mark |
 
 - D3–D5 only consider rows, columns, and regions that have no cat yet. For a
   unit with no open cells left, "all its open cells" would be vacuously true.
@@ -126,10 +128,56 @@ Hints reason over a `BoardState` where each cell is a cat, ✕, or open
 - D4 checks groups of regions up to size N/2. That's at most a few thousand
   groups for N ≤ 16, which is fast enough and easy to read.
 
+### D6 Contradiction by assumption
+
+D6 lives in `assume.py`, apart from `deduce.py`, so `find_deduction` stays
+D1–D5 and only `hints.py` puts D6 after it.
+
+- **Why it's sound.** Each D1–D5 step holds in every solution that matches
+  the marks (R7.7). If assuming a mark leads, step by step, to a broken
+  board, no solution has that mark, so every solution has the other one.
+- **A branch without a contradiction proves nothing**, even one that ends in
+  a complete valid board: concluding from it would assume the solution is
+  unique.
+- **Bounded.** One assumption at a time, followed only by D1–D5. D6 never
+  nests assumptions, so it never turns into trial-and-error search.
+- **Shortest proof.** Every open cell is tried in row-major order, a cat
+  before empty. The proof with the fewest D1–D5 steps wins; ties go to the
+  first one found. Once a proof is found, later branches stop as soon as
+  they'd be as long, which keeps D6 cheap.
+- **Already broken boards.** If the marks themselves already break the
+  board, D6 finds nothing. `hints.py` reports mistakes before it gets here.
+- **The hint** highlights the assumed cell and the unit that breaks. Its
+  `steps` explain, in order: where to look, the assumption, each D1–D5 step
+  that followed, why the board breaks, and which mark follows. The GUI shows
+  only the short `reason` for now. `trace` keeps the D1–D5 deductions
+  themselves, for tests.
+
+**Cost.** D6 runs D1–D5 to a standstill twice per open cell, so its cost
+is mostly D1–D5 failing at the end of each branch. To keep that down, D4
+and D5 were sped up without changing what they return (checked against the
+old code on 3,000 random boards): units and `ruled_out_by` are cached per
+puzzle, D4 skips groups of regions that already span too many lines, and
+D5 works out each unit's open cells once.
+
+Measured when D6 was added:
+
+- D1–D5 stall on the real board `IMG_7117` with 29 open cells. With D6,
+  hints solve it in 32 hints. Each D6 proof takes 3–5 steps, and
+  `next_hint` takes at most about 0.15 s.
+- Random 10×10–12×12 boards played out with hints: at most 0.73 s per D6
+  hint, including boards where D6 finally finds nothing.
+- **Known limit:** column stripes (each column its own region, so every
+  group of regions fits D4 exactly) is the worst case for D4: 0.9 s at
+  10×10 and 4.4 s at 12×12 when D6 finds nothing. Real game boards don't
+  look like this.
+
 ### Module boundaries
 
 - `deduce.py` implements D1–D5 using only `Puzzle` and `BoardState`. It
   never imports `solver.py`.
+- `assume.py` implements D6 on top of `deduce.py`. It never imports
+  `solver.py` or `rules.py`.
 - `hints.py` combines the steps above. It's the only place where deduction,
   rule checking, and solving meet.
 - Mistake detection (step 2) takes solutions from `iter_solutions` and stops
