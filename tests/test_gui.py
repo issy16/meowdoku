@@ -12,9 +12,12 @@ from meowdoku.gui import (
     MeowdokuApp,
     cell_at,
     cell_pixels,
+    box_at,
     cells_between,
+    dash_pieces,
     rounded_rect_points,
     tile_gap,
+    walk_layout,
 )
 from meowdoku.state import BoardState, Mark
 
@@ -270,3 +273,87 @@ def test_r8_13_previous_and_next_buttons_follow_the_history(root: tk.Tk) -> None
     assert str(app.redo_button.cget("state")) == "normal"
     app.redo_button.invoke()
     assert app.session.state.mark_at((0, 0)) is Mark.CROSS
+
+
+# R8.14 Show me
+
+
+@pytest.mark.parametrize("size", range(4, 17))
+def test_r8_14_walk_layout_fits_inside_its_card(size: int) -> None:
+    cell = cell_pixels(size)
+    width = height = size * cell + 2 * BOARD_INSET
+    layout = walk_layout(width, height, size, cell)
+    left, top, right, bottom = layout.card
+    grid = layout.grid
+    board_right, board_bottom = grid.left + size * grid.cell, grid.top + size * grid.cell
+    assert left <= grid.left and board_right <= right
+    assert grid.left == int(grid.left)  # whole pixels keep the tile edges smooth
+    assert 0 < grid.cell <= cell
+    caption_left, caption_top, wrap = layout.caption
+    assert board_bottom < caption_top
+    assert caption_left + wrap <= right
+    button_tops = {box[1] for box in layout.buttons.values()}
+    assert len(button_tops) == 1
+    assert caption_top + meowdoku.gui.WALK_CAPTION <= min(button_tops)
+    for x0, y0, x1, y1 in layout.buttons.values():
+        assert left <= x0 < x1 <= right and top <= y0 < y1 <= bottom
+
+
+def test_r8_14_dashed_cross_arm_has_three_even_pieces() -> None:
+    pieces = dash_pieces((0, 0, 50, 50))
+    assert pieces == [(0, 0, 10, 10), (20, 20, 30, 30), (40, 40, 50, 50)]
+
+
+def test_box_at_finds_the_box_under_a_point() -> None:
+    boxes = {"a": (0, 0, 10, 10), "b": (20, 0, 30, 10)}
+    assert box_at(25, 5, boxes) == "b"
+    assert box_at(15, 5, boxes) is None
+
+
+def press_walk(app: MeowdokuApp, name: str) -> None:
+    x0, y0, x1, y1 = app._walk_buttons[name]
+    app._on_press(FakeClick(int((x0 + x1) / 2), int((y0 + y1) / 2)))  # type: ignore[arg-type]
+    app._on_release(FakeClick(int((x0 + x1) / 2), int((y0 + y1) / 2)))  # type: ignore[arg-type]
+
+
+def test_r8_14_show_me_walks_through_a_d6_hint(root: tk.Tk) -> None:
+    app = MeowdokuApp(root, GameSession.from_text("ABCD\nABCD\nABCD\nABCD"))
+    app._run(app.session.hint)
+    gui = meowdoku.gui
+    assert app.message_text() == f"{app.session.message} {gui.SHOW_ME_TEXT} {gui.APPLY_TEXT}"
+    start, end = app.message.tag_ranges(gui.SHOW_ME_TAG)
+    assert app.message.get(start, end) == gui.SHOW_ME_TEXT
+
+    app._walk(app.session.show_me)  # what clicking the link does
+    assert app.walk_caption() == "Look at this cell."
+    assert set(app._walk_buttons) == {"close", "next"}  # no Back on the first frame
+    marks = app.session.state
+
+    press_walk(app, "next")
+    assert app.walk_caption() == "Suppose it has a cat."
+    assert "back" in app._walk_buttons
+    click(app, (0, 0))  # under the card's title: the card covers the board, so no marks change
+    assert app.session.state == marks and app.session.walking
+
+    app._on_key("Right")
+    app._on_key("Left")
+    assert app.walk_caption() == "Suppose it has a cat."
+    app._on_key("Escape")
+    assert not app.session.walking
+    assert not app.canvas.find_withtag(gui.WALK_TAG)
+    assert app.session.hint_shown  # the hint stays after closing
+    assert app.session.state == marks
+
+
+def test_r8_14_no_show_me_link_for_d1_to_d5(root: tk.Tk) -> None:
+    app = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"))
+    app._run(app.session.hint)
+    assert meowdoku.gui.SHOW_ME_TEXT not in app.message_text()
+
+
+def test_r8_6_return_closes_the_solved_card(root: tk.Tk) -> None:
+    """Return and Escape are bound once for both cards now; the solved card still closes."""
+    app = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"))
+    app._celebrate()
+    app._on_key("Return")
+    assert not app.popup

@@ -194,6 +194,17 @@ reported together in `.problems`.
   "Solved!" without the pop-up. Opening a screenshot starts a new history.
   While stepping, the Step by Step button reads **Next Step**. (Added at the
   owner's request.)
+- **R8.14** A D6 hint (R7.9) also has a "Show me" link, while stepping too.
+  It opens a card over the board that walks through the proof on a copy of
+  the board, one step per frame, each with its line of the explanation:
+  the cell to look at, the assumed mark, the marks each D1–D5 step adds
+  (with the cells it's based on highlighted), the row, column, or region
+  that breaks (highlighted red), and the mark that follows. Marks that
+  exist only in the assumption are drawn dashed. **Back**, **Next** (reading
+  **Done** on the last frame), and **Close** move through it; the arrow keys,
+  Return, and Escape do too. It never changes the player's marks, and
+  closing it leaves the hint showing. Any other action closes it. (Added at
+  the owner's request.)
 - **R8.10** Pressing on a cell and dragging across others marks or unmarks
   them, decided by the first cell: from an empty cell, every empty cell
   passed over gets a ✕; from a ✕, every ✕ passed over is cleared, except

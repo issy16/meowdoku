@@ -4,13 +4,15 @@ The GUI only draws a GameSession and forwards clicks and button presses to it.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
 from typing import Self
 
+from meowdoku.assume import apply, find_break
 from meowdoku.colors import name_regions, region_phrases
+from meowdoku.deduce import Deduction
 from meowdoku.hints import Hint, HintKind, next_hint
 from meowdoku.image_import import import_screenshot
 from meowdoku.parser import parse_puzzle
@@ -80,6 +82,57 @@ def crossed_out_by(puzzle: Puzzle, cat: Cell) -> frozenset[Cell]:
     )
 
 
+@dataclass(frozen=True)
+class Frame:
+    """One step of Show me (R8.14): a board to draw and the line that explains it.
+
+    `what_if` holds the cells whose marks exist only in the assumption, which
+    the window draws dashed; `ring` holds the cells to highlight.
+    """
+
+    state: BoardState
+    what_if: frozenset[Cell]
+    ring: frozenset[Cell]
+    style: Highlight
+    caption: str
+
+
+def walkthrough(puzzle: Puzzle, state: BoardState, deduction: Deduction) -> tuple[Frame, ...]:
+    """The frames of Show me for a D6 deduction, one per line of its explanation (R8.14).
+
+    The assumption is the opposite of the conclusion: a ✕ means a cat was
+    assumed, a cat means an empty cell was. The player's `state` is never changed.
+    """
+    if deduction.place_cat is not None:
+        cell, assumed = deduction.place_cat, Mark.CROSS
+        conclusion = state.with_mark(cell, Mark.CAT)
+    else:
+        (cell,) = deduction.cross_out
+        assumed = Mark.CAT
+        conclusion = state.with_crosses({cell})
+    look, suppose, *step_lines, breaks, follows = deduction.steps
+    here = frozenset({cell})
+
+    board = state.with_mark(cell, assumed)
+    frames = [
+        Frame(state, frozenset(), here, Highlight.HINT, look),
+        Frame(board, _what_if(state, board), here, Highlight.HINT, suppose),
+    ]
+    for step, line in zip(deduction.trace, step_lines, strict=True):
+        board = apply(board, step)
+        frames.append(Frame(board, _what_if(state, board), step.basis, Highlight.HINT, line))
+    broken = find_break(puzzle, board)
+    assert broken is not None, "a D6 proof ends on a broken board"
+    frames.append(Frame(board, _what_if(state, board), broken.cells, Highlight.PROBLEM, breaks))
+    frames.append(Frame(conclusion, frozenset(), here, Highlight.HINT, follows))
+    return tuple(frames)
+
+
+def _what_if(before: BoardState, after: BoardState) -> frozenset[Cell]:
+    """Cells whose mark in `after` isn't the player's."""
+    return frozenset(cell for cell in after.cats | after.crosses if after.mark_at(cell) != before.mark_at(cell))
+
+
 @dataclass
 class GameSession:
     """One puzzle being played: the marks, what to highlight, and a message."""
@@ -109,6 +162,10 @@ class GameSession:
     """True right after a click completes the puzzle; the window shows a pop-up (R8.6)."""
     painting: Paint | None = field(init=False, default=None)
     """What the current drag does, or None when not dragging or when it began on a cat (R8.10)."""
+    frames: tuple[Frame, ...] = field(init=False, default=())
+    """Show me's frames while its card is open, else empty (R8.14)."""
+    frame_number: int = field(init=False, default=0)
+    """The shown frame, counting from 0."""
 
     def __post_init__(self) -> None:
         if not self.colors:
@@ -259,6 +316,45 @@ class GameSession:
         self._note_solved(was_solved)
         self._remember(before)
 
+    @property
+    def can_show_me(self) -> bool:
+        """Whether the shown hint is a D6 step, the only kind with an explanation to walk through (R8.14)."""
+        return self.applicable is not None and self.applicable.deduction is not None and bool(
+            self.applicable.deduction.steps
+        )
+
+    @property
+    def walking(self) -> bool:
+        return bool(self.frames)
+
+    @property
+    def frame(self) -> Frame | None:
+        return self.frames[self.frame_number] if self.frames else None
+
+    def show_me(self) -> None:
+        """Open Show me at its first frame (R8.14). The hint stays, and the marks never change."""
+        if not self.can_show_me:
+            return
+        assert self.applicable is not None and self.applicable.deduction is not None
+        frames = walkthrough(self.puzzle, self.state, self.applicable.deduction)
+        self.frames = tuple(replace(f, caption=name_regions(f.caption, self.region_phrases)) for f in frames)
+        self.frame_number = 0
+
+    def next_frame(self) -> None:
+        """Next, or Done on the last frame, which closes Show me."""
+        if self.frame_number + 1 < len(self.frames):
+            self.frame_number += 1
+        else:
+            self.close_show_me()
+
+    def previous_frame(self) -> None:
+        self.frame_number = max(0, self.frame_number - 1)
+
+    def close_show_me(self) -> None:
+        """Close the card. The hint it came from stays showing."""
+        self.frames = ()
+        self.frame_number = 0
+
     def step(self) -> None:
         """Step by Step, then Next (R8.12): like pressing Hint and Apply over and over.
 
@@ -337,7 +433,7 @@ class GameSession:
             self._note_solved(was_solved=True)
 
     def _clear_feedback(self) -> None:
-        """Hide a hint and its message, end Step by Step, and end a shake or pop-up. A shown solution stays."""
+        """Hide a hint and its message, end Step by Step and Show me, and end a shake or pop-up. A shown solution stays."""
         self.highlight = frozenset()
         self.highlight_style = None
         self.hint_shown = False
@@ -346,3 +442,4 @@ class GameSession:
         self.message = ""
         self.shake = None
         self.just_solved = False
+        self.close_show_me()

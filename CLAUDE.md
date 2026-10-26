@@ -57,7 +57,7 @@ Allowed imports (everything may import `puzzle`):
 
 - `cli` -> `image_import`, `parser`, `solver`
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
-- `game` -> `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
+- `game` -> `assume`, `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
 - `hints` -> `assume`, `deduce`, `rules`, `solver`, `state`
 - `assume` -> `deduce`, `state`
 - `image_import` -> `parser`, `state`

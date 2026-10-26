@@ -11,10 +11,14 @@ from meowdoku.game import (
     crossed_out_by,
     default_region_colors,
     next_mark,
+    walkthrough,
 )
 from meowdoku.puzzle import MAX_SIZE, MeowdokuError, Puzzle
 from meowdoku.state import BoardState, Mark
 
+from helpers import apply_deduction
+
+FIXTURES = Path(__file__).parent / "fixtures"
 EXAMPLE_TEXT = "AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"
 EXAMPLE_SOLUTION = [(0, 4), (1, 2), (2, 0), (3, 3), (4, 1)]
 
@@ -577,3 +581,138 @@ def test_text_puzzle_files_are_not_accepted(tmp_path: Path) -> None:
 def test_missing_screenshot_raises_os_error(tmp_path: Path) -> None:
     with pytest.raises(OSError):
         GameSession.from_screenshot(tmp_path / "missing.png")
+
+
+# R8.14 Show me
+
+STRIPES_TEXT = "ABCD\nABCD\nABCD\nABCD"  # only D6 finds a step: a cat at (1, 1) leads nowhere
+SIX_TEXT = "DDDDDE\nDDDDDE\nCFDDEE\nCFABBE\nCFABBB\nCCAABB"
+# On this board D6's hint places a cat at (3, 4): with no cat there, a column ends up empty.
+SIX_CROSSES = [(0, 0), (0, 1), (0, 4), (1, 0), (1, 1), (1, 4), (2, 2), (2, 3), (2, 4), (3, 0), (3, 2), (3, 3)]
+SIX_CROSSES += [(4, 3), (4, 5), (5, 1), (5, 5)]
+
+
+def d6_session(text: str = STRIPES_TEXT, crosses: list[tuple[int, int]] | None = None) -> GameSession:
+    session = new_session(text)
+    if crosses:
+        session.state = BoardState(session.puzzle.size, crosses=frozenset(crosses))
+    session.hint()
+    assert session.can_show_me
+    return session
+
+
+def test_r8_14_walkthrough_has_one_frame_per_line_of_the_explanation() -> None:
+    session = d6_session()
+    assert session.applicable is not None and session.applicable.deduction is not None
+    deduction = session.applicable.deduction
+    frames = walkthrough(session.puzzle, session.state, deduction)
+    assert [frame.caption for frame in frames] == list(deduction.steps)
+
+
+def test_r8_14_walkthrough_replays_the_assumption_and_its_steps() -> None:
+    session = d6_session()
+    deduction = session.applicable.deduction  # type: ignore[union-attr]
+    player = session.state
+    look, suppose, *steps, breaks, follows = walkthrough(session.puzzle, player, deduction)
+
+    assert look.state == player and not look.what_if and look.ring == {(1, 1)}
+    assert suppose.state == player.with_mark((1, 1), Mark.CAT)
+    assert suppose.what_if == {(1, 1)}
+
+    board = suppose.state
+    for frame, step in zip(steps, deduction.trace, strict=True):
+        board = apply_deduction(board, step)
+        assert frame.state == board
+        assert frame.ring == step.basis
+        assert frame.style is Highlight.HINT
+        assert frame.what_if == board.cats | board.crosses  # the player's board was empty
+
+    assert breaks.state == board
+    assert breaks.style is Highlight.PROBLEM
+    assert breaks.ring == {(2, 0), (2, 1), (2, 2), (2, 3)}  # the row left with no room
+
+    assert follows.state == player.with_crosses({(1, 1)})
+    assert not follows.what_if  # the conclusion is real, so it's drawn solid
+    assert session.state == player
+
+
+def test_r8_14_empty_cell_assumption_ends_with_the_cat() -> None:
+    session = d6_session(SIX_TEXT, SIX_CROSSES)
+    session.show_me()
+    assert session.frames[1].caption == "Suppose it has no cat."
+    assert session.frames[1].state.mark_at((3, 4)) is Mark.CROSS
+    assert session.frames[1].what_if == {(3, 4)}
+    assert session.frames[-1].state.mark_at((3, 4)) is Mark.CAT
+    assert session.frames[-1].caption == "So the cat goes here."
+
+
+def test_r8_14_only_d6_hints_can_be_shown() -> None:
+    session = new_session()
+    session.hint()  # D3
+    assert session.applicable is not None
+    assert not session.can_show_me
+    session.show_me()
+    assert not session.walking
+
+
+def test_r8_14_next_and_back_stay_in_bounds_and_done_closes() -> None:
+    session = d6_session()
+    session.show_me()
+    assert session.walking and session.frame_number == 0
+    session.previous_frame()
+    assert session.frame_number == 0
+    for number in range(1, len(session.frames)):
+        session.next_frame()
+        assert session.frame_number == number
+    session.next_frame()  # Done
+    assert not session.walking
+
+
+def test_r8_14_closing_keeps_the_hint_and_the_marks() -> None:
+    session = d6_session()
+    hint, marks = session.applicable, session.state
+    session.show_me()
+    session.next_frame()
+    session.close_show_me()
+    assert not session.walking
+    assert session.hint_shown and session.applicable == hint
+    assert session.state == marks
+    session.apply_hint()  # Apply? still works afterwards
+    assert session.state.crosses == {(1, 1)}
+
+
+def test_r8_14_any_other_action_closes_it() -> None:
+    session = d6_session()
+    session.show_me()
+    session.click((3, 3))
+    assert not session.walking
+
+
+def test_r8_14_show_me_while_stepping() -> None:
+    session = new_session(STRIPES_TEXT)
+    session.step()
+    assert session.stepping and session.can_show_me
+    session.show_me()
+    assert session.walking
+    session.close_show_me()
+    assert session.stepping
+
+
+def test_r8_14_captions_name_regions_by_color() -> None:
+    """R7.8: no region letters, like the hint's own message.
+
+    Plays the real IMG_7117 board until a D6 proof that ends on an empty region.
+    """
+    session = new_session((FIXTURES / "screenshots" / "IMG_7117.txt").read_text())
+    for _ in range(100):
+        session.hint()
+        assert session.applicable is not None and session.applicable.deduction is not None
+        if session.can_show_me and "region '" in session.applicable.deduction.steps[-2]:
+            break
+        session.apply_hint()
+    else:
+        pytest.fail("no D6 hint about a region")
+    session.show_me()
+    breaks = session.frames[-2].caption
+    assert breaks.startswith("That leaves the ") and breaks.endswith(" region with no room for its cat.")
+    assert all("region '" not in frame.caption for frame in session.frames)
