@@ -305,6 +305,7 @@ their game on another device. The desktop app (R8, R10) stays.
 - **R11.11** A signed-in player can delete their account and saved game.
 - **R11.12** Load and response times are measured in the first prototype on
   a typical laptop and a typical phone; the owner then sets the targets here.
+  NFR5 applies to the desktop app.
 - **R11.13** The web app is published with GitHub Pages from this
   repository (`issy16/meowdoku`) at `https://issy16.github.io/meowdoku/`.
   The owner's résumé at `https://issy16.github.io/` comes from a separate
@@ -326,8 +327,39 @@ their game on another device. The desktop app (R8, R10) stays.
   sign-in service redirects back (for example after an email link), it
   returns to `https://issy16.github.io/meowdoku/`, and that address, plus a
   local one for testing, are the only ones allowed in the service's
-  settings. NFR5 applies to
-  the desktop app.
+  settings.
+
+## R12 Languages
+
+Added at the owner's request: every part of the app can be read in
+English, Traditional Chinese as written in Taiwan, Japanese, or Korean.
+
+- **R12.1** The languages are English (`en`), 繁體中文 (`zh-TW`), 日本語
+  (`ja`), and 한국어 (`ko`). Every word the web app shows is in the chosen
+  language: buttons, the loading line, messages, the solved pop-up, file
+  and screenshot errors, the Timings panel, sign-in and saving messages,
+  and hints (R12.4).
+- **R12.2** A language menu at the top of the web app lists each language
+  in its own name. Choosing one changes the page at once, including a shown
+  hint or step; the board and its marks don't change.
+- **R12.3** On the first visit the web app picks the first of the
+  browser's preferred languages that it offers (any Chinese counts as
+  `zh-TW`), else English. The choice is remembered on that device as
+  `meowdoku-language` (R11.15); it is never put in the URL (R11.14).
+- **R12.4** Hints, including D6 explanations and Step by Step, and region
+  color names ("the pink region", "the lighter orange region") are worded
+  in the chosen language. The rules of R7.3 and R7.8 hold in every
+  language: the reason refers to highlighted cells, never row or column
+  numbers, and regions are named by color and shade, never by letter.
+- **R12.5** Hint and error wording comes from one table per language,
+  keyed by message, with the details (colors, counts) filled in. English
+  wording stays exactly as it is now. Every message has every language,
+  and a test checks this.
+- **R12.6** The desktop window (R8) and the command line (R6) get the same
+  languages: the window from a Language menu, remembered between runs, and
+  the command line from a `--language` option. Both default to English.
+- **R12.7** The translations are written with Claude and checked by a
+  reader of each language before the owner shares the app widely.
 
 ## Non-functional requirements
 
