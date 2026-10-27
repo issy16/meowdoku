@@ -100,3 +100,12 @@ def test_r12_1_page_uses_only_known_labels() -> None:
     used = set(re.findall(r"\b((?:ui|timing)\.[a-z_]+)\b", page))
     assert used
     assert used <= set(labels("en"))
+
+
+def test_r12_1_every_button_is_worded_before_python_loads() -> None:
+    """Labels come from labels.json, so even while loading nothing shows in English by mistake."""
+    page = (WEB / "index.html").read_text()
+    buttons = re.findall(r"<button\b[^>]*>", page)
+    assert buttons
+    for button in buttons:
+        assert "data-label=" in button or "data-name=" in button, button
