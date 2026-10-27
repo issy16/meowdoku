@@ -220,3 +220,32 @@ def test_r12_2_opened_screenshot_keeps_the_language() -> None:
     assert view["language"] == "zh-TW"
     assert view["error"] is None
     assert act(bridge, "hint")["message"].startswith("這隻貓")  # the screenshot has cats, so D1 comes first
+
+
+def test_r11_7a_every_view_carries_the_save() -> None:
+    bridge = Bridge()
+    act(bridge, "press", 1, 1)
+    view = act(bridge, "release", 1, 1)
+    assert view["save"]["crosses"] == [[1, 1]]
+    assert view["save"]["grid"] == "\n".join(view["regions"])
+
+
+def test_r11_7a_restore_picks_up_the_saved_game() -> None:
+    first = Bridge()
+    act(first, "double", 0, 4)
+    saved = act(first, "press", 2, 2)["save"]
+    later = Bridge()
+    act(later, "language", "ko")
+    view = act(later, "restore", saved)
+    assert view["error"] is None
+    assert view["cats"] == [[0, 4]] and view["locked"] == [[0, 4]]
+    assert view["language"] == "ko"
+    assert not view["can_undo"]
+
+
+def test_r11_8_a_bad_save_starts_fresh_with_a_message() -> None:
+    bridge = Bridge()
+    act(bridge, "language", "ja")
+    view = act(bridge, "restore", {"version": 99})
+    assert view["error"] == "保存したゲームを開けなかったので、新しいゲームを始めました。"
+    assert view["cats"] == view["crosses"] == []

@@ -290,12 +290,18 @@ their game on another device. The desktop app (R8, R10) stays.
   the image is never uploaded or stored. Files other than PNG or JPEG, files
   over 20 MB, and images wider or taller than 8000 pixels are refused with a
   message.
-- **R11.6** Anyone can play without signing in. Signing in, through the
-  managed sign-in service the owner chooses, lets the game be saved. The
-  page shows who is signed in and has a Sign out button.
+- **R11.6** Anyone can play without signing in, and every player's game is
+  saved on their device (R11.7a). Signing in, through the managed sign-in
+  service the owner chooses, also saves it to their account. The page shows
+  who is signed in and has a Sign out button.
 - **R11.7** For a signed-in player, the current game is saved after each
   move, and after signing in on any supported browser it is restored. Each
   account has one saved game; opening a new screenshot replaces it.
+- **R11.7a** The current game saves itself on the device after every move,
+  with no Save button, and comes back when the page is opened again on that
+  browser, even after the browser was closed. It is kept as `meowdoku-game`
+  (R11.15), in the format of R11.8; opening a screenshot replaces it. A
+  private window may clear it when closed. (Added at the owner's request.)
 - **R11.8** A save holds a format version, the puzzle as a text grid (R3),
   each region's color, the cats and ✕ marks, and when it was saved. Undo
   history, hints, and the solution are not saved. Loading a save validates

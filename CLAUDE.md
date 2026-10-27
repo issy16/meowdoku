@@ -34,7 +34,8 @@ without the owner's approval**, and work one approved milestone at a time.
 - Paths to the app's own files are relative to the page, never starting
   with `/`; nothing goes in the URL; test under a `/meowdoku/` folder
   (R11.14).
-- Everything stored in the browser uses a `meowdoku` prefix (R11.15).
+- Everything stored in the browser uses a `meowdoku` prefix (R11.15): the
+  game (`meowdoku-game`), language, and theme.
 - No secret or privileged keys in `web/` or anywhere in the repository; the
   sign-in service enforces who can read each save (R11.9).
 - Guest play always works; sign-in is optional (R11.6). Phones are
@@ -79,6 +80,7 @@ src/meowdoku/
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
   gui.py           thin tkinter wrapper: drawing and event handling only
+  saves.py         saved games: GameSession <-> plain data, checked on load (R11.7a, R11.8)
   bridge.py        web actions (JSON) -> GameSession -> plain board description (R11.2)
 web/
   index.html, style.css, app.js   the page: draws the board, sends taps and buttons; no game logic
@@ -92,7 +94,8 @@ Allowed imports (everything may import `puzzle` and `messages`; `messages` impor
 
 - `cli` -> `image_import`, `parser`, `solver`
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
-- `bridge` -> `game`, `state` (same limits as `gui`); `web/` calls only `bridge`
+- `bridge` -> `game`, `saves`, `state` (same limits as `gui`); `web/` calls only `bridge`
+- `saves` -> `game`, `parser`, `state`
 - `game` -> `assume`, `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
 - `hints` -> `assume`, `deduce`, `rules`, `solver`, `state`
 - `assume` -> `deduce`, `state`

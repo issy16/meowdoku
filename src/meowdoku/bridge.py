@@ -16,6 +16,7 @@ from typing import Any
 from meowdoku.game import EXAMPLE_PUZZLE, GameSession, cells_between, error_text
 from meowdoku.messages import pick_language
 from meowdoku.puzzle import Cell, MeowdokuError
+from meowdoku.saves import from_save, to_save
 
 View = dict[str, Any]
 
@@ -36,6 +37,7 @@ class Bridge:
         self._actions: dict[str, Callable[..., None]] = {
             "open": self.open,
             "language": self.language,
+            "restore": self.restore,
             "press": self.press,
             "move": self.move,
             "release": self.release,
@@ -75,6 +77,11 @@ class Bridge:
         """Open a screenshot the worker saved, under the player's file name, in Pyodide's file system (R11.5)."""
         self._opening = path
         self.session = GameSession.from_screenshot(Path(path), self.session.language)
+        self._pressed = self._dragged_to = None
+
+    def restore(self, data: object) -> None:
+        """Pick up the game saved on this device (R11.7a); a bad save leaves a fresh game and an error."""
+        self.session = from_save(data, self.session.language)
         self._pressed = self._dragged_to = None
 
     def language(self, *preferred: str) -> None:
@@ -136,4 +143,5 @@ class Bridge:
             "just_solved": session.just_solved,
             "error": error,
             "language": session.language,
+            "save": to_save(session),
         }

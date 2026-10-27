@@ -429,6 +429,18 @@ TEXTS: dict[str, tuple[str, str, str, str]] = {
         "{name} を読み込めません：{reason}",
         "{name} 파일을 읽을 수 없습니다: {reason}",
     ),
+    "err.save_unreadable": (
+        "Your saved game couldn't be opened, so a new game was started.",
+        "無法開啟你儲存的遊戲，所以開始了新的一局。",
+        "保存したゲームを開けなかったので、新しいゲームを始めました。",
+        "저장된 게임을 열 수 없어서 새 게임을 시작했습니다.",
+    ),
+    "ui.save_failed": (
+        "Couldn't save your game on this device.",
+        "無法在這台裝置上儲存你的遊戲。",
+        "このデバイスにゲームを保存できませんでした。",
+        "이 기기에 게임을 저장하지 못했습니다.",
+    ),
     "err.invalid": ("invalid puzzle:", "題目無效：", "無効なパズルです：", "잘못된 퍼즐입니다:"),
     "err.board_size": (
         "board size {size} is not supported; it must be between {min} and {max}",

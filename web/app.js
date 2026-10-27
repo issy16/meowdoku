@@ -7,6 +7,7 @@ const DOUBLE_TAP_MS = 350;
 const BUSY_AFTER_MS = 150;
 const LANGUAGE_KEY = "meowdoku-language";  // R11.15, R12.3
 const THEME_KEY = "meowdoku-theme";  // R13.3
+const GAME_KEY = "meowdoku-game";  // R11.7a
 const THEMES = { auto: "ui.theme_auto", light: "ui.theme_light", night: "ui.theme_night" };  // in button order
 
 const $ = (id) => document.getElementById(id);
@@ -148,12 +149,13 @@ async function act(action, ...args) {
 worker.onmessage = (event) => {
   const data = event.data;
   if (data.type === "ready") {
-    wordingLoaded.then(() => {
+    wordingLoaded.then(async () => {
       ready = true;
       controls.forEach((button) => { button.disabled = false; });
       data.timings.forEach(([key, ms]) => noteTiming(key, ms));
       statusLine.textContent = "";
-      act("language", language);
+      await act("language", language);
+      await restoreGame();
     });
     return;
   }
@@ -177,6 +179,39 @@ worker.onerror = (event) => {
   loadProblem = event.message || "worker.js";
   applyLabels();
 };
+
+// ---- Saving on this device (R11.7a) --------------------------------------------
+// Every reply carries the game as a save (R11.8); it's kept whenever it
+// changes, so closing the browser loses nothing. There's no Save button.
+
+let saving = false;     // off until the saved game has been picked up, so it isn't overwritten
+let lastSave = null;    // the save last kept, to skip writing when nothing changed
+let saveFailed = false;
+
+async function restoreGame() {
+  const kept = stored(GAME_KEY);
+  if (kept) {
+    let data;
+    try { data = JSON.parse(kept); } catch { data = "damaged"; }
+    await act("restore", data);  // a bad save shows a message and leaves a fresh game
+  }
+  saving = true;
+  keepGame();
+}
+
+function keepGame() {
+  if (!saving || !view || !view.save) return;
+  const save = JSON.stringify(view.save);
+  if (save === lastSave) return;
+  try {
+    localStorage.setItem(GAME_KEY, JSON.stringify({ ...view.save, saved: new Date().toISOString() }));
+    lastSave = save;
+    if (saveFailed) { saveFailed = false; statusLine.textContent = ""; }
+  } catch {
+    saveFailed = true;  // R11.10: say so, keep playing
+    statusLine.textContent = t("ui.save_failed");
+  }
+}
 
 // ---- Drawing ---------------------------------------------------------------
 
@@ -231,6 +266,7 @@ function show(next, action, ms) {
   $("next").disabled = !ready || !view.can_redo;
   $("step").textContent = t(view.stepping ? "ui.next_step" : "ui.step");  // R8.12
   if (view.just_solved && fresh) $("popup").hidden = false;
+  keepGame();
 }
 
 function shake([row, col]) {
