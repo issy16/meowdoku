@@ -372,6 +372,30 @@ English, Traditional Chinese as written in Taiwan, Japanese, or Korean.
 - **R12.7** The translations are written with Claude and checked by a
   reader of each language before the owner shares the app widely.
 
+## R13 Night mode
+
+Added at the owner's request: a dark look for playing at night, in the web
+app and the desktop window alike.
+
+- **R13.1** Night mode darkens everything around the puzzle: the page, the
+  panel, the board's card, buttons, menus, messages, and pop-ups, with light
+  text. The region tiles keep their colors (R8.3), since the colors are the
+  puzzle; ✕ marks stay white, cats keep their white faces, and the hint and
+  problem rings keep their orange and red.
+- **R13.2** There are three choices: Auto (the default), Light, and Night.
+  Auto follows the device's own light or dark setting and changes with it
+  while the app is open.
+- **R13.3** The web app has a small button beside the language menu that
+  cycles Auto → Light → Night, showing which is chosen (and naming it for
+  screen readers, in the chosen language, R12). The choice is remembered on
+  that device as `meowdoku-theme` (R11.15).
+- **R13.4** The desktop window has an Appearance menu with the same three
+  choices, remembered in its settings file with the language (R12.6).
+- **R13.5** Text and buttons stay easy to read in both looks: at least the
+  WCAG AA contrast of 4.5:1 for text against its background.
+- **R13.6** Screenshot import (R9.6) supports screenshots of the window in
+  the light look only; night-mode screenshots may not import.
+
 ## Non-functional requirements
 
 - **NFR1** Python 3.11+. Pillow is the one runtime dependency, used only by
