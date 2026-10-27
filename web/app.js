@@ -50,7 +50,7 @@ worker.onmessage = (event) => {
     return;
   }
   if (data.type === "failed") {
-    statusLine.textContent = "Couldn't start Python: " + data.failure;
+    statusLine.textContent = "Couldn't load the game: " + data.failure;
     return;
   }
   const resolve = pending.get(data.id);
@@ -65,7 +65,7 @@ worker.onmessage = (event) => {
 };
 
 worker.onerror = (event) => {
-  statusLine.textContent = "Couldn't start Python: " + (event.message || "the worker failed to load");
+  statusLine.textContent = "Couldn't load the game: " + (event.message || "the worker failed to load");
 };
 
 // ---- Drawing ---------------------------------------------------------------
