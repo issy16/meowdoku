@@ -17,6 +17,7 @@ from meowdoku.messages import (
     Message,
     Region,
     count_text,
+    menu_order,
     normalize_language,
     pick_language,
     render,
@@ -127,6 +128,20 @@ def test_r12_4_hints_and_steps_never_show_letters_or_english(language: str) -> N
         assert not re.search(r"[A-Za-z]{3,}", text), text  # no English left over
 
 
-def test_r12_1_chinese_comes_first_and_is_named_chinese() -> None:
-    assert list(LANGUAGES.items())[0] == ("zh-TW", "中文")
+def test_r12_1_chinese_is_named_chinese() -> None:
+    assert LANGUAGES["zh-TW"] == "中文"
     assert render(Message("ui.hint"), "zh-TW") == "提示"  # the tables keep their own column order
+
+
+@pytest.mark.parametrize(
+    ("preferred", "expected"),
+    [
+        (["ja-JP", "en"], ["ja", "zh-TW", "en", "ko"]),
+        (["en-US", "zh-Hant-US"], ["en", "zh-TW", "ja", "ko"]),
+        (["fr", "ko-KR"], ["ko", "zh-TW", "en", "ja"]),
+        (["fr"], ["zh-TW", "en", "ja", "ko"]),
+        ([], ["zh-TW", "en", "ja", "ko"]),
+    ],
+)
+def test_r12_2_menu_lists_the_users_language_first(preferred: list[str], expected: list[str]) -> None:
+    assert menu_order(preferred) == expected

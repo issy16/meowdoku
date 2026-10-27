@@ -401,3 +401,21 @@ def test_r12_6_desktop_matches_the_web_app(root: tk.Tk) -> None:
     assert app.undo_button.cget("text") == "↶" and app.redo_button.cget("text") == "↷"
     names = [app.language_menu.entrycget(index, "label") for index in range(app.language_menu.index("end") + 1)]
     assert names == ["中文", "English", "日本語", "한국어"]
+
+
+def test_r12_6_desktop_menu_follows_the_computers_language(root: tk.Tk, tmp_path: Path) -> None:
+    """With nothing saved yet, the computer's language comes first and is used (R12.2, R12.3)."""
+    app = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"), tmp_path / "s.json", ["ja-JP"])
+    names = [app.language_menu.entrycget(index, "label") for index in range(app.language_menu.index("end") + 1)]
+    assert names == ["日本語", "中文", "English", "한국어"]
+    assert app.session.language == "ja"
+    meowdoku.gui.save_language(tmp_path / "s.json", "ko")
+    again = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"), tmp_path / "s.json", ["ja-JP"])
+    assert again.session.language == "ko"  # the player's own choice wins
+
+
+def test_r12_6_system_languages_reads_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(meowdoku.gui.sys, "platform", "linux")
+    monkeypatch.setenv("LANGUAGE", "ko_KR:en")
+    monkeypatch.setenv("LANG", "ja_JP.UTF-8")
+    assert meowdoku.gui.system_languages()[:3] == ["ko-KR", "en", "ja-JP"]

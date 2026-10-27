@@ -338,14 +338,17 @@ Added at the owner's request: every part of the app can be read in
 English, Traditional Chinese as written in Taiwan, Japanese, or Korean.
 
 - **R12.1** The languages are 中文 (`zh-TW`, Traditional Chinese as
-  written in Taiwan), English (`en`), 日本語 (`ja`), and 한국어 (`ko`), listed
-  in that order. (中文 first, and named 中文, at the owner's request.) Every word the web app shows is in the chosen
+  written in Taiwan), English (`en`), 日本語 (`ja`), and 한국어 (`ko`).
+  (Named 中文 at the owner's request.) Every word the web app shows is in the chosen
   language: buttons, the loading line, messages, the solved pop-up, file
   and screenshot errors, the Timings panel, sign-in and saving messages,
   and hints (R12.4).
 - **R12.2** A language menu at the top of the web app lists each language
-  in its own name. Choosing one changes the page at once, including a shown
-  hint or step; the board and its marks don't change.
+  in its own name. The user's own language (R12.3) comes first, then the
+  others as listed in R12.1; if it isn't one of them, the menu is in R12.1's
+  order. Choosing one changes the page at once, including a shown hint or
+  step; the board and its marks don't change. (Ordering by the user's
+  language at the owner's request.)
 - **R12.3** On the first visit the web app picks the first of the
   browser's preferred languages that it offers (any Chinese counts as
   `zh-TW`), else English. The choice is remembered on that device as
@@ -361,7 +364,11 @@ English, Traditional Chinese as written in Taiwan, Japanese, or Korean.
   and a test checks this.
 - **R12.6** The desktop window (R8) and the command line (R6) get the same
   languages: the window from a Language menu, remembered between runs, and
-  the command line from a `--language` option. Both default to English.
+  the command line from a `--language` option. The window treats the
+  computer's preferred languages as R12.2 and R12.3 treat the browser's:
+  its menu lists the computer's language first, and that's its language
+  until the player picks one. The command line defaults to English, so its
+  output doesn't change with the computer's settings.
 - **R12.7** The translations are written with Claude and checked by a
   reader of each language before the owner shares the app widely.
 

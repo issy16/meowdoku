@@ -10,7 +10,7 @@ This module imports nothing else from meowdoku, so every module may use it.
 """
 
 import string
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Union
 
@@ -20,7 +20,7 @@ LANGUAGES: dict[str, str] = {
     "ja": "日本語",
     "ko": "한국어",
 }
-"""Each language's code and its name in that language, in menu order: 中文 first (R12.1)."""
+"""Each language's code and its name in that language. Menus put the user's own language first (R12.2)."""
 
 DEFAULT_LANGUAGE = "en"
 
@@ -75,13 +75,24 @@ def normalize_language(code: str | None) -> str:
     return DEFAULT_LANGUAGE
 
 
-def pick_language(preferred: list[str]) -> str:
-    """The first of the browser's preferred languages that the app offers, else English (R12.3)."""
+def offered_language(preferred: Sequence[str]) -> str | None:
+    """The first of the user's preferred languages that the app offers, or None (R12.3)."""
     for code in preferred:
         language = normalize_language(code)
         if language != DEFAULT_LANGUAGE or code.lower().startswith("en"):
             return language
-    return DEFAULT_LANGUAGE
+    return None
+
+
+def pick_language(preferred: Sequence[str]) -> str:
+    """The first of the browser's preferred languages that the app offers, else English (R12.3)."""
+    return offered_language(preferred) or DEFAULT_LANGUAGE
+
+
+def menu_order(preferred: Sequence[str]) -> list[str]:
+    """Language codes for a menu: the user's own language first, then the rest as in LANGUAGES (R12.2)."""
+    first = offered_language(preferred)
+    return ([first] if first else []) + [code for code in LANGUAGES if code != first]
 
 
 def labels(language: str) -> dict[str, str]:

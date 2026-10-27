@@ -48,24 +48,28 @@ def write_zip(target: Path) -> None:
             archive.writestr(info, source.read_bytes())
 
 
-def write_labels(target: Path) -> None:
-    """The page's wording in every language, so it can show "Loading…" before Python starts."""
+def write_labels(target: Path, fresh: bool = False) -> None:
+    """The page's wording in every language, so it can show "Loading…" before Python starts.
+
+    `fresh` reads messages.py again, so --serve shows edits on reload; only the
+    server does that, since other modules keep using the module they imported.
+    """
     sys.path.insert(0, str(PACKAGE.parent))
     import meowdoku.messages
 
-    messages = importlib.reload(meowdoku.messages)  # --serve picks up edits on reload
+    messages = importlib.reload(meowdoku.messages) if fresh else meowdoku.messages
     data = {"languages": messages.LANGUAGES, "labels": {code: messages.labels(code) for code in messages.LANGUAGES}}
     target.write_text(json.dumps(data, ensure_ascii=False, indent=1))
 
 
-def assemble(out: Path) -> Path:
+def assemble(out: Path, fresh: bool = False) -> Path:
     """Write the site into `out` (created if needed) and return it."""
     out.mkdir(parents=True, exist_ok=True)
     for name in PAGE_FILES:
         shutil.copyfile(WEB / name, out / name)
     shutil.copyfile(SAMPLE, out / "sample.png")
     write_zip(out / "meowdoku.zip")
-    write_labels(out / "labels.json")
+    write_labels(out / "labels.json", fresh)
     return out
 
 
@@ -74,7 +78,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:
         if self.path.split("?")[0] in (f"/{SUBPATH}/", f"/{SUBPATH}/index.html"):
-            assemble(Path(self.directory) / SUBPATH)
+            assemble(Path(self.directory) / SUBPATH, fresh=True)
         super().do_GET()
 
 

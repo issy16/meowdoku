@@ -45,7 +45,7 @@ function rememberLanguage(code) {
   try { localStorage.setItem(LANGUAGE_KEY, code); } catch { /* private window: the choice lasts this visit */ }
 }
 
-// The first of the browser's languages the app offers; any Chinese is zh-TW (R12.3).
+// The first of the browser's languages the app offers, or null; any Chinese is zh-TW (R12.3).
 function browserLanguage() {
   for (const code of navigator.languages || [navigator.language || "en"]) {
     const lower = code.toLowerCase();
@@ -53,7 +53,7 @@ function browserLanguage() {
     const match = Object.keys(wording.languages).find((offered) => offered.toLowerCase() === lower.split("-")[0]);
     if (match) return match;
   }
-  return "en";
+  return null;
 }
 
 function applyLabels() {
@@ -81,10 +81,13 @@ async function loadWording() {
     const response = await fetch("labels.json");
     if (response.ok) wording = await response.json();
   } catch { /* keep English */ }
-  const select = $("language");
-  select.replaceChildren(...Object.entries(wording.languages).map(([code, name]) => new Option(name, code)));
+  // The browser's own language first in the menu, then the rest (R12.2).
+  const own = browserLanguage();
+  const codes = Object.keys(wording.languages);
+  const ordered = own ? [own, ...codes.filter((code) => code !== own)] : codes;
+  $("language").replaceChildren(...ordered.map((code) => new Option(wording.languages[code], code)));
   const stored = storedLanguage();
-  language = stored && stored in wording.languages ? stored : browserLanguage();
+  language = stored && stored in wording.languages ? stored : own || "en";
   applyLabels();
 }
 

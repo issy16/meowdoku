@@ -10,6 +10,9 @@ apart by tile color only.
 
 import argparse
 import json
+import locale
+import os
+import subprocess
 import sys
 import tkinter as tk
 from collections.abc import Callable, Sequence
@@ -19,7 +22,7 @@ from tkinter import filedialog, messagebox
 from types import TracebackType
 
 from meowdoku.game import EXAMPLE_PUZZLE, GameSession, Highlight, cells_between, error_text
-from meowdoku.messages import DEFAULT_LANGUAGE, LANGUAGES, label, normalize_language
+from meowdoku.messages import DEFAULT_LANGUAGE, LANGUAGES, label, menu_order, normalize_language, pick_language
 from meowdoku.puzzle import Cell, MeowdokuError
 from meowdoku.state import BoardState
 
@@ -204,14 +207,38 @@ def rounded_rect_points(box: Box, radius: float) -> list[float]:
 # The window
 
 
-def load_language(path: Path | None) -> str:
-    """The language saved in the settings file, or English if there is none (R12.6)."""
+def system_languages() -> list[str]:
+    """The computer's preferred languages, most preferred first, like a browser's (R12.6).
+
+    macOS keeps them in AppleLanguages; elsewhere, or if that can't be read,
+    the usual environment variables and locale are used.
+    """
+    found: list[str] = []
+    if sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                ["defaults", "read", "-g", "AppleLanguages"], capture_output=True, text=True, timeout=2, check=False
+            )
+            found += [item.strip().strip('",') for item in result.stdout.strip("()\n ").split(",") if item.strip()]
+        except (OSError, subprocess.SubprocessError):
+            pass
+    for name in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        found += [part.split(".")[0].replace("_", "-") for part in os.environ.get(name, "").split(":") if part]
+    code = locale.getlocale()[0]
+    if code:
+        found.append(code.replace("_", "-"))
+    return [code for code in found if code and code not in ("C", "POSIX")]
+
+
+def load_language(path: Path | None, default: str = DEFAULT_LANGUAGE) -> str:
+    """The language saved in the settings file, or `default` if there is none (R12.6)."""
     if path is None:
-        return DEFAULT_LANGUAGE
+        return default
     try:
-        return normalize_language(json.loads(path.read_text()).get("language"))
+        saved = json.loads(path.read_text()).get("language")
     except (OSError, ValueError, AttributeError):
-        return DEFAULT_LANGUAGE
+        return default
+    return normalize_language(saved) if saved else default
 
 
 def save_language(path: Path | None, language: str) -> None:
@@ -226,11 +253,18 @@ def save_language(path: Path | None, language: str) -> None:
 
 
 class MeowdokuApp:
-    def __init__(self, root: tk.Tk, session: GameSession, settings: Path | None = None) -> None:
-        """`settings` is where the chosen language is kept between runs; None keeps it for this run only."""
+    def __init__(
+        self, root: tk.Tk, session: GameSession, settings: Path | None = None, preferred: Sequence[str] = ()
+    ) -> None:
+        """`settings` is where the chosen language is kept between runs; None keeps it for this run only.
+
+        `preferred` holds the computer's languages: the menu lists the first one
+        offered at the top, and it's the language until the player picks one (R12.2).
+        """
         self.root = root
         self.session = session
         self.settings = settings
+        self.preferred = list(preferred)
         self.popup = False  # whether the solved card (R8.6) is showing
         root.title("Meowdoku")
         root.resizable(False, False)
@@ -296,7 +330,8 @@ class MeowdokuApp:
         root.bind("<Escape>", lambda event: self._on_key("Escape"))
         root.bind("<Left>", lambda event: self._on_key("Left"))
         root.bind("<Right>", lambda event: self._on_key("Right"))
-        self.set_language(self.session.language if settings is None else load_language(settings))
+        default = pick_language(self.preferred) if self.preferred else self.session.language
+        self.set_language(load_language(settings, default))
 
     # Language (R12.6)
 
@@ -308,8 +343,10 @@ class MeowdokuApp:
         menubar = tk.Menu(self.root)
         menu = tk.Menu(menubar, tearoff=False)
         self._language = tk.StringVar(value=self.session.language)
-        for code, name in LANGUAGES.items():
-            menu.add_radiobutton(label=name, value=code, variable=self._language, command=self._choose_language)
+        for code in menu_order(self.preferred):
+            menu.add_radiobutton(
+                label=LANGUAGES[code], value=code, variable=self._language, command=self._choose_language
+            )
         menubar.add_cascade(label=label("ui.language"), menu=menu)
         self.root.configure(menu=menubar)
         self._menubar = menubar
@@ -774,7 +811,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = tk.Tk()
-    language = load_language(SETTINGS_PATH)
+    preferred = system_languages()
+    language = load_language(SETTINGS_PATH, pick_language(preferred))
     session = GameSession.from_text(EXAMPLE_PUZZLE)
     if args.screenshot is not None:
         try:
@@ -782,7 +820,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         except (OSError, MeowdokuError) as error:
             reason = error_text(error, args.screenshot, language)
             messagebox.showerror(label("ui.cant_open", language), f"{reason}\n\n{label('ui.example_instead', language)}")
-    MeowdokuApp(root, session, SETTINGS_PATH)
+    MeowdokuApp(root, session, SETTINGS_PATH, preferred)
     root.mainloop()
     return 0
 
