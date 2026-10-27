@@ -58,6 +58,7 @@
 
 html, body {
   margin: 0;
+  touch-action: manipulation;  /* no double-tap zoom anywhere on the page; pinch zoom still works */
   background: var(--page);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;

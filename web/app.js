@@ -327,6 +327,12 @@ function release(event) {
 board.addEventListener("pointerup", release);
 board.addEventListener("pointercancel", release);
 
+// A double tap places a cat, so it must never zoom the page instead. Safari can
+// zoom even with touch-action set, so the board also cancels the touch's own
+// default (the zoom and the delayed click); pointer events above still arrive.
+board.addEventListener("touchend", (event) => event.preventDefault(), { passive: false });
+board.addEventListener("dblclick", (event) => event.preventDefault());
+
 // ---- Buttons ---------------------------------------------------------------
 
 $("previous").onclick = () => act("previous");
