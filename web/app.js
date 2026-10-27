@@ -118,6 +118,7 @@ function show(next, action, ms) {
   showMessage();
   $("previous").disabled = !view.can_undo;
   $("next").disabled = !view.can_redo;
+  $("step").textContent = view.stepping ? "Next Step" : "Step by Step";  // R8.12
   if (view.just_solved) $("popup").hidden = false;
 }
 
@@ -212,6 +213,7 @@ board.addEventListener("pointercancel", release);
 $("previous").onclick = () => act("previous");
 $("next").onclick = () => act("next");
 $("hint").onclick = () => act("hint");
+$("step").onclick = () => act("step");
 $("solve").onclick = () => act("solve");
 $("reset").onclick = () => act("reset");
 $("open").onclick = () => $("file").click();

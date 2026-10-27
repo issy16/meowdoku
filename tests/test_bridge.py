@@ -153,3 +153,33 @@ def test_r11_2_bad_requests_are_errors_not_crashes() -> None:
     assert "bad request" in json.loads(bridge.handle(json.dumps({"action": "fly"})))["error"]
     assert "bad request" in json.loads(bridge.handle("not json"))["error"]
     assert "bad request" in act(bridge, "press", 1)["error"]
+
+
+def test_r8_12_step_by_step_shows_numbered_steps_without_apply() -> None:
+    bridge = Bridge()
+    view = act(bridge, "step")
+    assert view["stepping"]
+    assert view["message"].startswith("Step 1: ")
+    assert not view["can_apply"]  # while stepping, there's no Apply? link
+    assert view["crosses"] == view["cats"] == []
+    view = act(bridge, "step")
+    assert view["message"].startswith("Step 2: ")
+    assert view["crosses"] or view["cats"]  # Next Step made step 1's move
+
+
+def test_r8_12_step_by_step_ends_when_solved() -> None:
+    bridge = Bridge()
+    view = act(bridge, "step")
+    for _ in range(50):
+        if not view["stepping"]:
+            break
+        view = act(bridge, "step")
+    assert view["just_solved"]
+    assert sorted(view["cats"]) == EXAMPLE_SOLUTION
+
+
+def test_r8_12_a_click_ends_step_by_step() -> None:
+    bridge = Bridge()
+    act(bridge, "step")
+    act(bridge, "press", 2, 2)
+    assert not act(bridge, "release", 2, 2)["stepping"]

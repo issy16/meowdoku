@@ -273,15 +273,16 @@ their game on another device. The desktop app (R8, R10) stays.
   screenshot can pick one from the phone's photos.
 - **R11.2** The page talks to Python only through a small bridge. Each call
   is one player action (open, click, place cat, drag, hint, apply, solve,
-  reset, previous, next) and returns a plain description of the board: the
+  reset, previous, next, step) and returns a plain description of the board: the
   marks, highlighted cells, message, and which buttons are enabled. The page
   holds no game logic (as R8.7).
 - **R11.3** Python runs in a web worker, so the page stays responsive while
   it loads, hints, or solves, and shows that it is busy.
-- **R11.4** Playing follows R8.2–R8.6, R8.9–R8.11, and R8.13 (the look,
-  clicks, double-clicks, drag, Hint with Apply?, Solve, Reset, Previous and
-  Next, the cat check, and the solved pop-up). Step by Step (R8.12) and Show
-  me (R8.14) come in a later release.
+- **R11.4** Playing follows R8.2–R8.6 and R8.9–R8.13 (the look, clicks,
+  double-clicks, drag, Hint with Apply?, Step by Step, Solve, Reset,
+  Previous and Next, the cat check, and the solved pop-up). Show me (R8.14)
+  comes in a later release. (Step by Step added to the first release at the
+  owner's request.)
 - **R11.5** Opening a screenshot reads it on the player's device, as in R9;
   the image is never uploaded or stored. Files other than PNG or JPEG, files
   over 20 MB, and images wider or taller than 8000 pixels are refused with a
