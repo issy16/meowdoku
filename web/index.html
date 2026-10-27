@@ -9,7 +9,13 @@
 <body>
   <!-- Every path here is relative to the page, so the app works under /meowdoku/ (R11.14). -->
   <main>
-    <h1>Meowdoku</h1>
+    <header>
+      <h1>Meowdoku</h1>
+      <label class="language">
+        <span class="visually-hidden" data-label="ui.language">Language</span>
+        <select id="language"></select>
+      </label>
+    </header>
     <p id="status" role="status">Loading…</p>
 
     <div class="card">
@@ -19,32 +25,32 @@
     <p id="message" class="message" aria-live="polite"></p>
 
     <div class="buttons">
-      <button id="open" type="button">Open</button>
-      <button id="previous" type="button">Previous</button>
-      <button id="next" type="button">Next</button>
-      <button id="hint" type="button">Hint</button>
+      <button id="open" type="button" data-label="ui.open">Open</button>
+      <button id="previous" type="button" data-label="ui.previous">Previous</button>
+      <button id="next" type="button" data-label="ui.next">Next</button>
+      <button id="hint" type="button" data-label="ui.hint">Hint</button>
       <button id="step" type="button">Step by Step</button>
-      <button id="solve" type="button">Solve</button>
-      <button id="reset" type="button">Reset</button>
+      <button id="solve" type="button" data-label="ui.solve">Solve</button>
+      <button id="reset" type="button" data-label="ui.reset">Reset</button>
     </div>
     <input id="file" type="file" accept="image/png,image/jpeg" hidden>
 
     <details class="timings">
-      <summary>Timings</summary>
-      <p>How long each step took in this browser (R11.12).</p>
+      <summary data-label="ui.timings">Timings</summary>
+      <p data-label="ui.timings_note">How long each step took in this browser (R11.12).</p>
       <table><tbody id="timings"></tbody></table>
       <div class="buttons">
-        <button id="sample" type="button">Open sample screenshot</button>
-        <button id="measure" type="button">Measure hints and Solve</button>
+        <button id="sample" type="button" data-label="ui.sample">Open sample screenshot</button>
+        <button id="measure" type="button" data-label="ui.measure">Measure hints and Solve</button>
       </div>
     </details>
   </main>
 
   <div id="popup" class="popup" hidden>
     <div class="popup-card" role="dialog" aria-labelledby="popup-title">
-      <p id="popup-title" class="popup-title">Puzzle solved!</p>
-      <p class="popup-subtitle">Well done!</p>
-      <button id="popup-ok" type="button">OK</button>
+      <p id="popup-title" class="popup-title" data-label="ui.solved_title">Puzzle solved!</p>
+      <p class="popup-subtitle" data-label="ui.solved_subtitle">Well done!</p>
+      <button id="popup-ok" type="button" data-label="ui.ok">OK</button>
     </div>
   </div>
 

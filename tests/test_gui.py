@@ -2,6 +2,7 @@
 
 import tkinter as tk
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
@@ -357,3 +358,38 @@ def test_r8_6_return_closes_the_solved_card(root: tk.Tk) -> None:
     app._celebrate()
     app._on_key("Return")
     assert not app.popup
+
+
+# R12.6 Languages
+
+
+def test_r12_6_language_menu_words_the_window(root: tk.Tk, tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    app = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"), settings)
+    assert app.buttons["ui.hint"].cget("text") == "Hint"
+    click(app, (0, 0))
+    app._run(app.session.hint)
+    app._language.set("ko")
+    app._choose_language()
+    assert app.buttons["ui.hint"].cget("text") == "힌트"
+    assert app.step_button.cget("text") == "단계별"
+    assert app.message_text().endswith("적용할까요?")  # the hint stays, reworded, with its link
+    assert app.session.state.mark_at((0, 0)) is Mark.CROSS  # the board doesn't change
+    assert meowdoku.gui.load_language(settings) == "ko"
+
+
+def test_r12_6_language_is_remembered_between_runs(root: tk.Tk, tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    meowdoku.gui.save_language(settings, "ja")
+    app = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"), settings)
+    assert app.session.language == "ja"
+    assert app.buttons["ui.solve"].cget("text") == "解答"
+
+
+def test_r12_6_bad_settings_mean_english(tmp_path: Path) -> None:
+    settings = tmp_path / "settings.json"
+    assert meowdoku.gui.load_language(settings) == "en"  # missing
+    settings.write_text("not json")
+    assert meowdoku.gui.load_language(settings) == "en"
+    settings.write_text('{"language": "fr"}')
+    assert meowdoku.gui.load_language(settings) == "en"

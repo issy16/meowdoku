@@ -183,3 +183,40 @@ def test_r8_12_a_click_ends_step_by_step() -> None:
     act(bridge, "step")
     act(bridge, "press", 2, 2)
     assert not act(bridge, "release", 2, 2)["stepping"]
+
+
+def test_r12_2_language_words_messages_and_keeps_the_board() -> None:
+    bridge = Bridge()
+    act(bridge, "double", 0, 4)
+    english = act(bridge, "hint")
+    view = act(bridge, "language", "ja")
+    assert view["language"] == "ja"
+    assert view["cats"] == english["cats"] and view["highlight"] == english["highlight"]
+    assert view["message"] != english["message"] and view["message"]
+    assert act(bridge, "language", "en")["message"] == english["message"]
+
+
+def test_r12_3_language_picks_the_first_offered() -> None:
+    bridge = Bridge()
+    assert act(bridge, "language", "fr-FR", "zh-Hant-TW", "ja")["language"] == "zh-TW"
+    assert act(bridge, "language", "fr")["language"] == "en"
+    assert act(bridge, "language", "ko-KR")["language"] == "ko"
+
+
+def test_r12_1_screenshot_errors_use_the_language_and_file_name(tmp_path: Path) -> None:
+    bridge = Bridge()
+    act(bridge, "language", "ko")
+    view = act(bridge, "open", str(tmp_path / "my board.txt"))
+    assert view["error"].startswith("my board.txt ")
+    assert "스크린샷" in view["error"]
+    view = act(bridge, "open", str(tmp_path / "missing.png"))
+    assert view["error"].startswith("missing.png 파일을 읽을 수 없습니다")
+
+
+def test_r12_2_opened_screenshot_keeps_the_language() -> None:
+    bridge = Bridge()
+    act(bridge, "language", "zh-TW")
+    view = act(bridge, "open", str(FIXTURES / "screenshots" / "IMG_7117.PNG"))
+    assert view["language"] == "zh-TW"
+    assert view["error"] is None
+    assert act(bridge, "hint")["message"].startswith("這隻貓")  # the screenshot has cats, so D1 comes first

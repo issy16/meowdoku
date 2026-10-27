@@ -74,7 +74,8 @@ src/meowdoku/
   assume.py        D6: contradiction by assumption, built on D1–D5
   hints.py         next_hint: violations, mistakes, D1–D6 (never reveals answers)
   image_import.py  screenshot -> text grid, region colors, cats and ✕ marks (Pillow)
-  colors.py        plain color names for regions ("the pink region")
+  colors.py        plain color names for regions ("the pink region"), in any language
+  messages.py      every sentence and label in en, zh-TW, ja, ko (R12); Message is a str holding the English
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
   gui.py           thin tkinter wrapper: drawing and event handling only
@@ -87,7 +88,7 @@ web/
 .github/workflows/pages.yml   tests, assembles, and publishes the site to GitHub Pages
 ```
 
-Allowed imports (everything may import `puzzle`):
+Allowed imports (everything may import `puzzle` and `messages`; `messages` imports nothing):
 
 - `cli` -> `image_import`, `parser`, `solver`
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
@@ -97,6 +98,10 @@ Allowed imports (everything may import `puzzle`):
 - `assume` -> `deduce`, `state`
 - `image_import` -> `parser`, `state`
 - `deduce`, `rules` -> `state`
+
+- Every sentence or label a player reads is a `Message` key in `messages.py`,
+  with all four languages (R12.5). Never change an English wording there
+  without the owner's approval; tests compare against it.
 
 - `rules.py` and `solver.py` must never import each other. The validator is an
   independent check on the solver.

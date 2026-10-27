@@ -126,3 +126,27 @@ def test_r6_3_real_process_has_exit_code_and_no_traceback(tmp_path: Path) -> Non
     assert completed.stdout == ""
     assert "Traceback" not in completed.stderr
     assert "is not a screenshot" in completed.stderr
+
+
+# R12.6 Languages
+
+
+def test_r12_6_language_option_words_the_output(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code, out, err = run([str(screenshot(tmp_path, EXAMPLE_ROWS)), "--language", "zh-TW"], capsys)
+    assert code == EXIT_OK and err == ""
+    assert out.startswith("偵測到的題目：\nAABBB\n")
+    assert "\nUNIQUE\n" in out  # the status stays a code in every language
+    assert "5 隻貓：第 1 列第 5 欄；" in out
+
+
+def test_r12_6_errors_use_the_language(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code, out, err = run([str(tmp_path / "missing.png"), "--language", "ja"], capsys)
+    assert code == EXIT_INPUT_ERROR and out == ""
+    assert err.startswith("meowdoku: エラー: ") and "を読み込めません" in err
+
+
+def test_r12_6_unknown_language_is_an_input_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exit_info:
+        main([str(tmp_path / "board.png"), "--language", "fr"])
+    assert exit_info.value.code == 2
+    assert "--language" in capsys.readouterr().err

@@ -13,16 +13,19 @@ from meowdoku.game import GameSession
 
 
 def measure(path: str) -> str:
-    """Rows of [what, milliseconds or text], as JSON."""
+    """Rows of [label key, its details, milliseconds or a label key], as JSON (R12.1).
+
+    The page words each row in the chosen language from labels.json.
+    """
     rows: list[list[object]] = []
     start = time.perf_counter()
     session = GameSession.from_screenshot(Path(path))
-    rows.append(["Screenshot import", _ms(start)])
+    rows.append(["timing.import", {}, _ms(start)])
     session.state = type(session.state).empty(session.puzzle.size)
 
     start = time.perf_counter()
     session.solve_result
-    rows.append(["Solve (first time)", _ms(start)])
+    rows.append(["timing.solve", {}, _ms(start)])
 
     hint_times: list[int] = []
     d6_times: list[int] = []
@@ -37,11 +40,11 @@ def measure(path: str) -> str:
             break
         session.apply_hint()
     if hint_times:
-        rows.append(["First hint", hint_times[0]])
-        rows.append([f"Slowest of {len(hint_times)} hints", max(hint_times)])
-        rows.append(["All hints to solve", sum(hint_times)])
-    rows.append(["Slowest D6 hint", max(d6_times) if d6_times else "none needed"])
-    rows.append(["Solved by hints alone", "yes" if session.is_solved else "no"])
+        rows.append(["timing.first_hint", {}, hint_times[0]])
+        rows.append(["timing.slowest", {"n": len(hint_times)}, max(hint_times)])
+        rows.append(["timing.all_hints", {}, sum(hint_times)])
+    rows.append(["timing.slowest_d6", {}, max(d6_times) if d6_times else "timing.none_needed"])
+    rows.append(["timing.solved_by_hints", {}, "timing.yes" if session.is_solved else "timing.no"])
     return json.dumps(rows)
 
 

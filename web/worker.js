@@ -22,9 +22,10 @@ async function timed(timings, name, step) {
 
 async function start() {
   const timings = [];
-  pyodide = await timed(timings, "Start Python", () => loadPyodide({ indexURL: PYODIDE_URL }));
-  await timed(timings, "Load Pillow", () => pyodide.loadPackage("pillow"));
-  await timed(timings, "Load meowdoku", async () => {
+  // Rows are named by label key; the page words them (R12.1).
+  pyodide = await timed(timings, "timing.start", () => loadPyodide({ indexURL: PYODIDE_URL }));
+  await timed(timings, "timing.pillow", () => pyodide.loadPackage("pillow"));
+  await timed(timings, "timing.package", async () => {
     // Relative to this script, so it works under /meowdoku/ (R11.14).
     const zip = await fetch("meowdoku.zip");
     if (!zip.ok) throw new Error(`meowdoku.zip: HTTP ${zip.status}`);
@@ -46,9 +47,11 @@ function answer(message) {
   const start = performance.now();
   let args = message.args || [];
   if (message.action === "open" || message.action === "measure") {
-    // The screenshot stays on this device: it goes only into Pyodide's in-memory files (R11.5).
-    const ext = message.name.toLowerCase().endsWith(".png") ? ".png" : ".jpg";
-    const path = "/tmp/upload" + ext;
+    // The screenshot stays on this device: it goes only into Pyodide's in-memory files (R11.5),
+    // under the player's own file name, so errors can name it.
+    const name = message.name.split(/[\\/]/).pop() || "screenshot";
+    pyodide.FS.mkdirTree("/tmp/upload");
+    const path = "/tmp/upload/" + name;
     pyodide.FS.writeFile(path, new Uint8Array(message.bytes));
     args = [path];
   }

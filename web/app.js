@@ -5,6 +5,7 @@ const MAX_BYTES = 20 * 1024 * 1024;  // R11.5
 const MAX_SIDE = 8000;
 const DOUBLE_TAP_MS = 350;
 const BUSY_AFTER_MS = 150;
+const LANGUAGE_KEY = "meowdoku-language";  // R11.15, R12.3
 
 const $ = (id) => document.getElementById(id);
 const board = $("board");
@@ -22,6 +23,72 @@ let tiles = [];
 // Buttons wait for Python, so a press is never silently dropped while it loads.
 const controls = document.querySelectorAll("main button");
 controls.forEach((button) => { button.disabled = true; });
+
+// ---- Languages (R12) -------------------------------------------------------
+// labels.json holds the page's wording in every language, made from
+// meowdoku/messages.py; hints and errors come from Python already worded.
+
+let wording = { languages: { en: "English" }, labels: { en: {} } };
+let language = "en";
+let loadProblem = null;  // why the game couldn't load, shown in the chosen language
+
+function t(key, args = {}) {
+  const template = (wording.labels[language] || {})[key] ?? (wording.labels.en || {})[key] ?? key;
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(args[name] ?? ""));
+}
+
+function storedLanguage() {
+  try { return localStorage.getItem(LANGUAGE_KEY); } catch { return null; }
+}
+
+function rememberLanguage(code) {
+  try { localStorage.setItem(LANGUAGE_KEY, code); } catch { /* private window: the choice lasts this visit */ }
+}
+
+// The first of the browser's languages the app offers; any Chinese is zh-TW (R12.3).
+function browserLanguage() {
+  for (const code of navigator.languages || [navigator.language || "en"]) {
+    const lower = code.toLowerCase();
+    if (lower.startsWith("zh")) return "zh-TW";
+    const match = Object.keys(wording.languages).find((offered) => offered.toLowerCase() === lower.split("-")[0]);
+    if (match) return match;
+  }
+  return "en";
+}
+
+function applyLabels() {
+  document.documentElement.lang = language;
+  document.querySelectorAll("[data-label]").forEach((element) => { element.textContent = t(element.dataset.label); });
+  $("language").value = language;
+  if (!ready) statusLine.textContent = loadProblem ? t("ui.load_failed", { reason: loadProblem }) : t("ui.loading");
+  renderTimings();
+  if (view) show(view);
+}
+
+function chooseLanguage(code) {
+  language = code in wording.languages ? code : "en";
+  applyLabels();
+  if (ready) act("language", language);
+}
+
+async function loadWording() {
+  try {
+    const response = await fetch("labels.json");
+    if (response.ok) wording = await response.json();
+  } catch { /* keep English */ }
+  const select = $("language");
+  select.replaceChildren(...Object.entries(wording.languages).map(([code, name]) => new Option(name, code)));
+  const stored = storedLanguage();
+  language = stored && stored in wording.languages ? stored : browserLanguage();
+  applyLabels();
+}
+
+$("language").onchange = () => {
+  rememberLanguage($("language").value);
+  chooseLanguage($("language").value);
+};
+
+const wordingLoaded = loadWording();
 
 // ---- Talking to the worker -------------------------------------------------
 
@@ -42,22 +109,25 @@ async function act(action, ...args) {
 worker.onmessage = (event) => {
   const data = event.data;
   if (data.type === "ready") {
-    ready = true;
-    controls.forEach((button) => { button.disabled = false; });
-    data.timings.forEach(([name, ms]) => noteTiming(name, ms));
-    statusLine.textContent = "";
-    act("view");
+    wordingLoaded.then(() => {
+      ready = true;
+      controls.forEach((button) => { button.disabled = false; });
+      data.timings.forEach(([key, ms]) => noteTiming(key, ms));
+      statusLine.textContent = "";
+      act("language", language);
+    });
     return;
   }
   if (data.type === "failed") {
-    statusLine.textContent = "Couldn't load the game: " + data.failure;
+    loadProblem = data.failure;
+    applyLabels();
     return;
   }
   const resolve = pending.get(data.id);
   pending.delete(data.id);
   if (pending.size === 0) statusLine.classList.remove("busy");
   if (data.failure) {
-    showError("Something went wrong: " + data.failure);
+    showError(t("ui.went_wrong_reason", { reason: data.failure }));
     resolve(null);
     return;
   }
@@ -65,7 +135,8 @@ worker.onmessage = (event) => {
 };
 
 worker.onerror = (event) => {
-  statusLine.textContent = "Couldn't load the game: " + (event.message || "the worker failed to load");
+  loadProblem = event.message || "worker.js";
+  applyLabels();
 };
 
 // ---- Drawing ---------------------------------------------------------------
@@ -95,7 +166,7 @@ function show(next, action, ms) {
   const rebuild = !view || view.size !== next.size || view.regions.join() !== next.regions.join();
   view = next;
   if (rebuild) buildBoard(view.size);
-  noteTiming("Last action", `${action}, ${ms} ms`);
+  if (action) noteTiming("ui.last_action", `${action}, ${ms} ms`);
 
   for (const tile of tiles) {
     const row = +tile.dataset.row;
@@ -114,12 +185,13 @@ function show(next, action, ms) {
     tile.classList.toggle("problem", lit && view.highlight_style === "problem");
   }
 
-  if (view.shake) shake(view.shake);
+  const fresh = action && action !== "language";  // a new move, not the same board reworded
+  if (view.shake && fresh) shake(view.shake);
   showMessage();
-  $("previous").disabled = !view.can_undo;
-  $("next").disabled = !view.can_redo;
-  $("step").textContent = view.stepping ? "Next Step" : "Step by Step";  // R8.12
-  if (view.just_solved) $("popup").hidden = false;
+  $("previous").disabled = !ready || !view.can_undo;
+  $("next").disabled = !ready || !view.can_redo;
+  $("step").textContent = t(view.stepping ? "ui.next_step" : "ui.step");  // R8.12
+  if (view.just_solved && fresh) $("popup").hidden = false;
 }
 
 function shake([row, col]) {
@@ -136,7 +208,7 @@ function showMessage() {
     const apply = document.createElement("button");
     apply.className = "link";
     apply.type = "button";
-    apply.textContent = "Apply?";
+    apply.textContent = t("ui.apply");
     apply.onclick = () => act("apply");
     messageLine.append(" ", apply);
   }
@@ -147,17 +219,24 @@ function showError(text) {
   messageLine.textContent = text;
 }
 
-const timingRows = new Map();
-function noteTiming(name, ms) {
-  let row = timingRows.get(name);
-  if (!row) {
-    row = document.createElement("tr");
-    row.innerHTML = "<td></td><td></td>";
-    row.firstChild.textContent = name;
-    $("timings").append(row);
-    timingRows.set(name, row);
-  }
-  row.lastChild.textContent = typeof ms === "number" ? `${ms} ms` : ms;
+// Timings rows by label key, worded again whenever the language changes.
+const timings = new Map();
+function noteTiming(key, value, args = {}) {
+  timings.set(key, { value, args });
+  renderTimings();
+}
+
+function renderTimings() {
+  $("timings").replaceChildren(...[...timings].map(([key, { value, args }]) => {
+    const row = document.createElement("tr");
+    const name = document.createElement("td");
+    const shown = document.createElement("td");
+    name.textContent = t(key, args);
+    shown.textContent = typeof value === "number" ? `${value} ms`
+      : value.startsWith("timing.") ? t(value) : value;
+    row.append(name, shown);
+    return row;
+  }));
 }
 
 // ---- Taps, double taps, and drags (R11.1a) ---------------------------------
@@ -231,23 +310,23 @@ async function openFile(file) {
   const reply = await send({ action: "open", name: file.name, bytes }, [bytes]);
   if (reply && reply.view) {
     show(reply.view, "open", reply.ms);
-    noteTiming("Screenshot import", reply.ms);
+    noteTiming("timing.import", reply.ms);
   }
 }
 
 // Screenshots must be PNG or JPEG, at most 20 MB and 8000 pixels a side (R11.5).
 async function refusal(file) {
   if (!/\.(png|jpe?g)$/i.test(file.name) && !/^image\/(png|jpeg)$/.test(file.type)) {
-    return "Please choose a PNG or JPEG screenshot.";
+    return t("ui.pick_png");
   }
-  if (file.size > MAX_BYTES) return "That file is over 20 MB.";
+  if (file.size > MAX_BYTES) return t("ui.too_big_bytes");
   try {
     const image = await createImageBitmap(file);
     const tooBig = image.width > MAX_SIDE || image.height > MAX_SIDE;
     image.close();
-    if (tooBig) return `That image is over ${MAX_SIDE} pixels wide or tall.`;
+    if (tooBig) return t("ui.too_big_pixels", { max: MAX_SIDE });
   } catch {
-    return "That file isn't an image this browser can read.";
+    return t("ui.not_image");
   }
   return null;
 }
@@ -262,7 +341,7 @@ $("sample").onclick = async () => openFile(await sampleFile());
 $("measure").onclick = async () => {
   const bytes = await (await sampleFile()).arrayBuffer();
   const reply = await send({ action: "measure", name: "sample.png", bytes }, [bytes]);
-  if (reply && reply.rows) reply.rows.forEach(([name, value]) => noteTiming(name, value));
+  if (reply && reply.rows) reply.rows.forEach(([key, args, value]) => noteTiming(key, value, args));
 };
 
 // ---- The solved pop-up (R8.6) ----------------------------------------------

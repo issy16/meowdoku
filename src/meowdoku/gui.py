@@ -9,6 +9,7 @@ apart by tile color only.
 """
 
 import argparse
+import json
 import sys
 import tkinter as tk
 from collections.abc import Callable, Sequence
@@ -17,7 +18,8 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from types import TracebackType
 
-from meowdoku.game import EXAMPLE_PUZZLE, GameSession, Highlight, cells_between
+from meowdoku.game import EXAMPLE_PUZZLE, GameSession, Highlight, cells_between, error_text
+from meowdoku.messages import DEFAULT_LANGUAGE, LANGUAGES, label, normalize_language
 from meowdoku.puzzle import Cell, MeowdokuError
 from meowdoku.state import BoardState
 
@@ -47,29 +49,28 @@ CAT_INK = "#262626"
 REVEALED_INK = "#9a9a9a"
 CAT_WHITE = "#ffffff"
 HIGHLIGHT_COLORS = {Highlight.HINT: "#f5a700", Highlight.PROBLEM: "#d62828"}
-SOLVED_POPUP = "Well done!"
+SOLVED_POPUP = label("ui.solved_subtitle")
 POPUP_DELAY_MS = 150  # let the solving move show before the pop-up covers the board
 POPUP_TAG = "popup"
 POPUP_WIDTH = 280
 POPUP_HEIGHT = 160
 POPUP_RADIUS = 20
-SOLVED_TITLE = "Puzzle solved!"
+SOLVED_TITLE = label("ui.solved_title")
 POPUP_TITLE_FONT = ("Helvetica", 22, "bold")
 POPUP_BUTTON_FONT = ("Helvetica", 14, "bold")
 POPUP_SUBTITLE_COLOR = "#b08a86"
 POPUP_BUTTON_COLOR = "#e8873a"  # warm orange, like the game's highlights
 POPUP_BORDER_COLOR = "#e4d8d2"  # a thin soft outline around the card
-APPLY_TEXT = "Apply?"  # the link after a hint (R8.11)
-STEP_LABEL = "Step by Step"  # the button that becomes Next Step while stepping (R8.12)
-NEXT_LABEL = "Next Step"
-UNDO_LABEL = "Previous"  # undo the player's last move (R8.13)
-REDO_LABEL = "Next"  # redo it
+# English labels; the window shows them in its language (R12.6).
+APPLY_TEXT = label("ui.apply")  # the link after a hint (R8.11)
+STEP_LABEL = label("ui.step")  # the button that becomes Next Step while stepping (R8.12)
+NEXT_LABEL = label("ui.next_step")
 APPLY_TAG = "apply"
 APPLY_COLOR = "#c77400"  # a darker shade of the Hint ring's orange
-SHOW_ME_TEXT = "Show me"  # the link after a D6 hint (R8.14)
+SHOW_ME_TEXT = label("ui.show_me")  # the link after a D6 hint (R8.14)
 SHOW_ME_TAG = "show_me"
 WALK_TAG = "walkthrough"
-WALK_TITLE = "What if?"
+SETTINGS_PATH = Path.home() / ".meowdoku" / "settings.json"  # the window's language, kept between runs
 WALK_PADDING = 16
 WALK_HEADER = 24  # height of the title line
 WALK_CAPTION = 64  # room for three lines of explanation
@@ -202,10 +203,33 @@ def rounded_rect_points(box: Box, radius: float) -> list[float]:
 # The window
 
 
+def load_language(path: Path | None) -> str:
+    """The language saved in the settings file, or English if there is none (R12.6)."""
+    if path is None:
+        return DEFAULT_LANGUAGE
+    try:
+        return normalize_language(json.loads(path.read_text()).get("language"))
+    except (OSError, ValueError, AttributeError):
+        return DEFAULT_LANGUAGE
+
+
+def save_language(path: Path | None, language: str) -> None:
+    """Remember the window's language for next time; a settings file that can't be written is skipped."""
+    if path is None:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"language": language}))
+    except OSError:
+        pass
+
+
 class MeowdokuApp:
-    def __init__(self, root: tk.Tk, session: GameSession) -> None:
+    def __init__(self, root: tk.Tk, session: GameSession, settings: Path | None = None) -> None:
+        """`settings` is where the chosen language is kept between runs; None keeps it for this run only."""
         self.root = root
         self.session = session
+        self.settings = settings
         self.popup = False  # whether the solved card (R8.6) is showing
         root.title("Meowdoku")
         root.resizable(False, False)
@@ -214,24 +238,25 @@ class MeowdokuApp:
 
         toolbar = tk.Frame(root, padx=MARGIN, pady=MARGIN, background=PAGE_COLOR)
         toolbar.pack(fill="x")
-        buttons = {}
-        for label, command in (
-            ("Open…", self.open_file),
-            (UNDO_LABEL, lambda: self._run(self.session.undo)),
-            (REDO_LABEL, lambda: self._run(self.session.redo)),
-            ("Hint", lambda: self._run(self.session.hint)),
-            (STEP_LABEL, lambda: self._run(self.session.step)),
-            ("Solve", lambda: self._run(self.session.solve)),
-            ("Reset", lambda: self._run(self.session.reset)),
+        self.buttons: dict[str, tk.Button] = {}  # by message key, so their labels follow the language
+        for key, command in (
+            ("ui.open_dialog", self.open_file),
+            ("ui.previous", lambda: self._run(self.session.undo)),
+            ("ui.next", lambda: self._run(self.session.redo)),
+            ("ui.hint", lambda: self._run(self.session.hint)),
+            ("ui.step", lambda: self._run(self.session.step)),
+            ("ui.solve", lambda: self._run(self.session.solve)),
+            ("ui.reset", lambda: self._run(self.session.reset)),
         ):
-            buttons[label] = tk.Button(toolbar, text=label, command=command, highlightbackground=PAGE_COLOR)
-            buttons[label].pack(side="left", padx=(0, 6))
-        self.step_button = buttons[STEP_LABEL]
-        self.undo_button = buttons[UNDO_LABEL]
-        self.redo_button = buttons[REDO_LABEL]
-        self.root.update_idletasks()
-        self._step_width = self.step_button.winfo_reqwidth()
+            button = tk.Button(toolbar, command=command, highlightbackground=PAGE_COLOR)
+            button.pack(side="left", padx=(0, 6))
+            self.buttons[key] = button
+        self.step_button = self.buttons["ui.step"]
+        self.undo_button = self.buttons["ui.previous"]
+        self.redo_button = self.buttons["ui.next"]
         self._step_padx = int(str(self.step_button.cget("padx")))
+        self._step_width = 0
+        self.language_menu = self._build_language_menu()
 
         self.canvas = tk.Canvas(root, highlightthickness=0, background=PAGE_COLOR)
         self.canvas.pack()
@@ -270,17 +295,56 @@ class MeowdokuApp:
         root.bind("<Escape>", lambda event: self._on_key("Escape"))
         root.bind("<Left>", lambda event: self._on_key("Left"))
         root.bind("<Right>", lambda event: self._on_key("Right"))
+        self.set_language(self.session.language if settings is None else load_language(settings))
+
+    # Language (R12.6)
+
+    def _label(self, key: str, **args: object) -> str:
+        return label(key, self.session.language, **args)  # type: ignore[arg-type]
+
+    def _build_language_menu(self) -> tk.Menu:
+        """A Language menu in the menu bar, each language in its own name."""
+        menubar = tk.Menu(self.root)
+        menu = tk.Menu(menubar, tearoff=False)
+        self._language = tk.StringVar(value=self.session.language)
+        for code, name in LANGUAGES.items():
+            menu.add_radiobutton(label=name, value=code, variable=self._language, command=self._choose_language)
+        menubar.add_cascade(label=label("ui.language"), menu=menu)
+        self.root.configure(menu=menubar)
+        self._menubar = menubar
+        return menu
+
+    def _choose_language(self) -> None:
+        self.set_language(self._language.get())
+        save_language(self.settings, self.session.language)
+
+    def set_language(self, language: str) -> None:
+        """Word the window in `language`: buttons, menu, messages, and hints. The board doesn't change."""
+        self.session.set_language(language)
+        self._language.set(language)
+        self._menubar.entryconfigure(0, label=self._label("ui.language"))
+        for key, button in self.buttons.items():
+            button.configure(text=self._label(key))
+        self._measure_step_button()
         self.redraw()
 
-    def _label_step_button(self, label: str) -> None:
+    def _measure_step_button(self) -> None:
+        """The width of the wider of Step by Step and Next Step, so switching never shifts the buttons."""
+        button = self.step_button
+        widths = []
+        for key in ("ui.next_step", "ui.step"):
+            button.configure(text=self._label(key), padx=self._step_padx)
+            self.root.update_idletasks()
+            widths.append(button.winfo_reqwidth())
+        self._step_width = max(widths)
+
+    def _label_step_button(self, text: str) -> None:
         """Show "Step by Step" or "Next Step" (R8.12), padding the shorter one so nothing shifts.
 
         Padding keeps the native button look; a fixed width would not.
         """
         button = self.step_button
-        if button.cget("text") == label:
-            return
-        button.configure(text=label, padx=self._step_padx)
+        button.configure(text=text, padx=self._step_padx)
         self.root.update_idletasks()
         extra = self._step_width - button.winfo_reqwidth()
         button.configure(padx=self._step_padx + max(0, extra) // 2)
@@ -289,16 +353,17 @@ class MeowdokuApp:
 
     def open_file(self) -> None:
         path = filedialog.askopenfilename(
-            title="Open a screenshot",
-            filetypes=[("Screenshots", "*.png *.jpg *.jpeg"), ("All files", "*")],
+            title=self._label("ui.open_title"),
+            filetypes=[(self._label("ui.screenshots"), "*.png *.jpg *.jpeg"), (self._label("ui.all_files"), "*")],
         )
         if not path:
             return
         self.close_popup()
+        language = self.session.language
         try:
-            self.session = GameSession.from_screenshot(Path(path))
+            self.session = GameSession.from_screenshot(Path(path), language)
         except (OSError, MeowdokuError) as error:
-            messagebox.showerror("Can't open puzzle", str(error))
+            messagebox.showerror(self._label("ui.cant_open"), error_text(error, Path(path), language))
             return
         self.redraw()
 
@@ -330,11 +395,14 @@ class MeowdokuApp:
         tags = POPUP_TAG
         self._round_box((left - 1, top - 1, right + 1, bottom + 1), POPUP_RADIUS + 1, POPUP_BORDER_COLOR, tags)
         self._round_box((left, top, right, bottom), POPUP_RADIUS, CARD_COLOR, tags)
-        canvas.create_text(middle, top + 44, text=SOLVED_TITLE, font=POPUP_TITLE_FONT, fill=TEXT_COLOR, tags=tags)
-        canvas.create_text(middle, top + 76, text=SOLVED_POPUP, font=MESSAGE_FONT, fill=POPUP_SUBTITLE_COLOR, tags=tags)
+        title, subtitle = self._label("ui.solved_title"), self._label("ui.solved_subtitle")
+        canvas.create_text(middle, top + 44, text=title, font=POPUP_TITLE_FONT, fill=TEXT_COLOR, tags=tags)
+        canvas.create_text(middle, top + 76, text=subtitle, font=MESSAGE_FONT, fill=POPUP_SUBTITLE_COLOR, tags=tags)
         button = (middle - 56, bottom - 54, middle + 56, bottom - 22)
         self._round_box(button, (button[3] - button[1]) / 2, POPUP_BUTTON_COLOR, tags)  # a pill
-        canvas.create_text(middle, (button[1] + button[3]) / 2, text="OK", font=POPUP_BUTTON_FONT, fill=CARD_COLOR, tags=tags)
+        canvas.create_text(
+            middle, (button[1] + button[3]) / 2, text=self._label("ui.ok"), font=POPUP_BUTTON_FONT, fill=CARD_COLOR, tags=tags
+        )
         self.popup = True
 
     def _round_box(self, box: Box, radius: float, fill: str, tags: str) -> None:
@@ -454,7 +522,7 @@ class MeowdokuApp:
         """
         text = f"{exc_type.__name__}: {error}"
         try:
-            messagebox.showerror("Something went wrong", text, parent=self.root)
+            messagebox.showerror(self._label("ui.went_wrong"), text, parent=self.root)
         except tk.TclError:
             print(f"meowdoku: something went wrong: {text}", file=sys.stderr)
 
@@ -485,7 +553,7 @@ class MeowdokuApp:
         if self.session.walking:
             self._draw_walkthrough()
         self._show_message()
-        self._label_step_button(NEXT_LABEL if self.session.stepping else STEP_LABEL)
+        self._label_step_button(self._label("ui.next_step" if self.session.stepping else "ui.step"))
         self.undo_button.configure(state="normal" if self.session.can_undo else "disabled")
         self.redo_button.configure(state="normal" if self.session.can_redo else "disabled")
 
@@ -497,10 +565,10 @@ class MeowdokuApp:
         text.insert("end", self.session.message)
         if self.session.can_show_me:
             text.insert("end", " ")
-            text.insert("end", SHOW_ME_TEXT, SHOW_ME_TAG)
+            text.insert("end", self._label("ui.show_me"), SHOW_ME_TAG)
         if self.session.applicable is not None and not self.session.stepping:  # Next applies while stepping
             text.insert("end", " ")
-            text.insert("end", APPLY_TEXT, APPLY_TAG)
+            text.insert("end", self._label("ui.apply"), APPLY_TAG)
         text.configure(state="disabled")
         text.update_idletasks()
         lines = text.count("1.0", "end", "displaylines")
@@ -641,9 +709,15 @@ class MeowdokuApp:
         self._round_box(layout.card, POPUP_RADIUS, CARD_COLOR, tags)
         header_y = top + WALK_PADDING + WALK_HEADER / 2
         self.canvas.create_text(
-            left + WALK_PADDING, header_y, text=WALK_TITLE, anchor="w", font=POPUP_BUTTON_FONT, fill=TEXT_COLOR, tags=tags
+            left + WALK_PADDING,
+            header_y,
+            text=self._label("ui.walk_title"),
+            anchor="w",
+            font=POPUP_BUTTON_FONT,
+            fill=TEXT_COLOR,
+            tags=tags,
         )
-        count = f"Step {self.session.frame_number + 1} of {len(self.session.frames)}"
+        count = self._label("ui.walk_count", number=self.session.frame_number + 1, total=len(self.session.frames))
         self.canvas.create_text(
             right - WALK_PADDING, header_y, text=count, anchor="e", font=MESSAGE_FONT, fill=POPUP_SUBTITLE_COLOR, tags=tags
         )
@@ -655,7 +729,7 @@ class MeowdokuApp:
         self.canvas.create_text(
             caption_x,
             caption_y,
-            text=frame.caption,
+            text=self.session.caption,
             anchor="nw",
             width=wrap,
             font=MESSAGE_FONT,
@@ -663,7 +737,11 @@ class MeowdokuApp:
             tags=(tags, WALK_CAPTION_TAG),
         )
         last = self.session.frame_number + 1 == len(self.session.frames)
-        labels = {"back": "Back", "close": "Close", "next": "Done" if last else "Next"}
+        labels = {
+            "back": self._label("ui.back"),
+            "close": self._label("ui.close"),
+            "next": self._label("ui.done" if last else "ui.walk_next"),
+        }
         if self.session.frame_number == 0:
             del labels["back"]
         for name, label in labels.items():
@@ -695,13 +773,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     root = tk.Tk()
+    language = load_language(SETTINGS_PATH)
     session = GameSession.from_text(EXAMPLE_PUZZLE)
     if args.screenshot is not None:
         try:
-            session = GameSession.from_screenshot(args.screenshot)
+            session = GameSession.from_screenshot(args.screenshot, language)
         except (OSError, MeowdokuError) as error:
-            messagebox.showerror("Can't open puzzle", f"{error}\n\nShowing the example puzzle instead.")
-    MeowdokuApp(root, session)
+            reason = error_text(error, args.screenshot, language)
+            messagebox.showerror(label("ui.cant_open", language), f"{reason}\n\n{label('ui.example_instead', language)}")
+    MeowdokuApp(root, session, SETTINGS_PATH)
     root.mainloop()
     return 0
 

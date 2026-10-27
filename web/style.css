@@ -45,7 +45,34 @@ main {
   }
 }
 
-h1 { font-size: 1.6rem; margin: 0 0 4px; }
+/* The title on the left, the language menu (R12.2) on the right */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+h1 { font-size: 1.6rem; margin: 0; }
+.language select {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 #status { margin: 0 0 8px; min-height: 1.3em; color: var(--subtle); }
 #status.busy::after { content: " …"; }

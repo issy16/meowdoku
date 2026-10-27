@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property, lru_cache
 
+from meowdoku.messages import Message, Region
 from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.state import BoardState
 
@@ -31,11 +32,19 @@ class Unit:
 
     name: str
     cells: frozenset[Cell]
+    label: str | None = None
+    """The region's label; None for rows and columns."""
 
     @property
     def kind(self) -> str:
         """'row', 'column', or 'region', for short messages like "This row has ..."."""
         return self.name.split()[0]
+
+    @property
+    def region(self) -> Region:
+        """How messages name this region; hints show it as a color (R7.8)."""
+        assert self.label is not None, f"{self.name} is not a region"
+        return Region(self.label)
 
 
 @dataclass(frozen=True)
@@ -49,10 +58,10 @@ class Deduction:
 
     technique: Technique
     basis: frozenset[Cell]
-    reason: str
+    reason: Message
     place_cat: Cell | None = None
     cross_out: frozenset[Cell] = field(default_factory=frozenset)
-    steps: tuple[str, ...] = ()
+    steps: tuple[Message, ...] = ()
     trace: tuple["Deduction", ...] = ()
 
 
@@ -82,7 +91,7 @@ def columns(puzzle: Puzzle) -> tuple[Unit, ...]:
 
 @lru_cache(maxsize=PUZZLE_CACHE_SIZE)
 def regions(puzzle: Puzzle) -> tuple[Unit, ...]:
-    return tuple(Unit(f"region {label!r}", cells) for label, cells in puzzle.region_cells.items())
+    return tuple(Unit(f"region {label!r}", cells, label) for label, cells in puzzle.region_cells.items())
 
 
 @lru_cache(maxsize=PUZZLE_CACHE_SIZE)
@@ -127,7 +136,7 @@ def cat_neighborhood(puzzle: Puzzle, state: BoardState) -> Deduction | None:
             return Deduction(
                 Technique.CAT_NEIGHBORHOOD,
                 frozenset({cat}),
-                "This cat rules out its row, column, region, and the cells around it.",
+                Message("d1"),
                 cross_out=targets,
             )
     return None
@@ -147,7 +156,7 @@ def last_open_cell(puzzle: Puzzle, state: BoardState) -> Deduction | None:
             return Deduction(
                 Technique.LAST_OPEN_CELL,
                 unit.cells,
-                f"This {unit.kind} has only 1 cell left.",
+                Message(f"d2.{unit.kind}"),
                 place_cat=cell,
             )
     return None
@@ -174,8 +183,7 @@ def region_confined_to_line(puzzle: Puzzle, state: BoardState) -> Deduction | No
                     return Deduction(
                         Technique.CONFINEMENT,
                         remaining,
-                        f"The cat must be in {region.name} in this {line.kind}, "
-                        f"so cross out the rest of this {line.kind}.",
+                        Message(f"d3.line.{line.kind}", region=region.region),
                         cross_out=targets,
                     )
     return None
@@ -194,8 +202,7 @@ def line_confined_to_region(puzzle: Puzzle, state: BoardState) -> Deduction | No
                     return Deduction(
                         Technique.CONFINEMENT,
                         remaining,
-                        f"The cat must be in {region.name} in this {line.kind}, "
-                        f"so cross out the rest of {region.name}.",
+                        Message(f"d3.region.{line.kind}", region=region.region),
                         cross_out=targets,
                     )
     return None
@@ -288,7 +295,7 @@ def _pigeonhole_for_group(
     return Deduction(
         Technique.PIGEONHOLE,
         remaining,
-        f"These regions only fit in these {line_word}, so cross out the rest of those {line_word}.",
+        Message(f"d4.{line_word}"),
         cross_out=targets,
     )
 
@@ -317,28 +324,27 @@ def blocking(puzzle: Puzzle, state: BoardState) -> Deduction | None:
                 return Deduction(
                     Technique.BLOCKING,
                     frozenset({cell}),
-                    f"A cat here would leave {_seen_from(cell, unit)} with no room for its cat, "
-                    "so it can't have a cat.",
+                    Message("d5", unit=_seen_from(cell, unit)),
                     cross_out=frozenset({cell}),
                 )
     return None
 
 
-def _seen_from(cell: Cell, unit: Unit) -> str:
+def _seen_from(cell: Cell, unit: Unit) -> Message:
     """Name a unit without numbers, from where `cell` is: "the row above", "region 'B'".
 
     The blocked unit is never the cell's own row or column, so a row is above
     or below it and a column is to its left or right.
     """
     if unit.kind == "region":
-        return unit.name
+        return Message("unit.region", region=unit.region)
     axis = 0 if unit.kind == "row" else 1
     distance = next(iter(unit.cells))[axis] - cell[axis]
     if unit.kind == "row":
-        side = "above" if distance < 0 else "below"
-        return f"the row {side}" if abs(distance) == 1 else f"a row further {'up' if distance < 0 else 'down'}"
+        side = ("above" if distance < 0 else "below") if abs(distance) == 1 else ("up" if distance < 0 else "down")
+        return Message(f"unit.row_{side}")
     side = "left" if distance < 0 else "right"
-    return f"the column to the {side}" if abs(distance) == 1 else f"a column further {side}"
+    return Message(f"unit.column_{side}" if abs(distance) == 1 else f"unit.column_further_{side}")
 
 
 # All rules, simplest first (R7.4)

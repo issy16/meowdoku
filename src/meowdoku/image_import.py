@@ -22,6 +22,7 @@ from statistics import median
 
 from PIL import Image, ImageChops, UnidentifiedImageError
 
+from meowdoku.messages import Message
 from meowdoku.parser import parse_puzzle
 from meowdoku.puzzle import MAX_SIZE, Cell, MeowdokuError, Puzzle
 from meowdoku.state import Mark
@@ -118,7 +119,7 @@ def import_screenshot(path: Path) -> ImportedPuzzle:
     grid isn't a valid puzzle.
     """
     if not is_image_path(path):
-        raise ImageImportError(f"{path.name} is not a screenshot; use a .png, .jpg, or .jpeg file")
+        raise ImageImportError(Message("err.not_screenshot", name=path.name))
     image = _open_image(path)
     tiles = tile_mask(image)
     board = find_board(tiles)
@@ -147,7 +148,7 @@ def _open_image(path: Path) -> Image.Image:
                 return Image.alpha_composite(Image.new("RGBA", rgba.size, WHITE), rgba).convert("RGB")
             return image.convert("RGB")
     except UnidentifiedImageError:
-        raise ImageImportError(f"{path.name} is not a readable PNG or JPEG image") from None
+        raise ImageImportError(Message("err.unreadable", name=path.name)) from None
 
 
 # Step 1: find the board
@@ -175,13 +176,13 @@ def find_board(tiles: Image.Image) -> Box:
     largest band whose tile area is square.
     """
     if tiles.getbbox() is None:
-        raise ImageImportError("couldn't find the board: no colored tiles were found")
+        raise ImageImportError(Message("err.no_tiles"))
     height = tiles.height
     coverage = tiles.resize((1, height), Image.Resampling.BOX).tobytes()
     bands = _bridge_small_gaps(_tile_runs(coverage))
     boards = [box for top, bottom in bands if (box := _square_box(tiles, top, bottom))]
     if not boards:
-        raise ImageImportError("couldn't find the board: no square grid of colored tiles was found")
+        raise ImageImportError(Message("err.no_grid"))
     return max(boards, key=lambda box: box.width * box.height)
 
 
@@ -279,9 +280,9 @@ def count_cells(tiles: Image.Image, board: Box) -> int:
     across = _cells_along(inside.resize((board.width, 1), Image.Resampling.BOX).tobytes())
     down = _cells_along(inside.resize((1, board.height), Image.Resampling.BOX).tobytes())
     if across != down:
-        raise ImageImportError(f"found a grid {across} cells wide and {down} cells tall; the board must be square")
+        raise ImageImportError(Message("err.not_square", across=across, down=down))
     if not 1 <= across <= MAX_SIZE:
-        raise ImageImportError(f"found {across} cells per row; boards must have 1 to {MAX_SIZE}")
+        raise ImageImportError(Message("err.size", across=across, max=MAX_SIZE))
     return across
 
 
@@ -353,7 +354,7 @@ def cell_color(image: Image.Image, box: Box) -> RGB:
         if not _is_white(color) and not _is_black(color) and not _is_gray(color)
     ]
     if not samples:
-        raise ImageImportError("couldn't read a tile's color: it is all white or black")
+        raise ImageImportError(Message("err.tile_color"))
     bins = Counter(_color_bin(color) for color in samples)
     most_common_bin = bins.most_common(1)[0][0]
     return _average([color for color in samples if _color_bin(color) == most_common_bin])
@@ -398,7 +399,7 @@ def group_colors(cell_colors: list[list[RGB]], size: int) -> tuple[LabelGrid, di
 
     groups = list(dict.fromkeys(group_of[cell] for cell in cells))
     if len(groups) != size:
-        raise ImageImportError(f"found {len(groups)} region colors; expected {size}")
+        raise ImageImportError(Message("err.region_colors", found=len(groups), expected=size))
     label_of_group = {group: chr(ord("A") + index) for index, group in enumerate(groups)}
 
     labels = [[label_of_group[group_of[(row, col)]] for col in range(size)] for row in range(size)]

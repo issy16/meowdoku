@@ -13,7 +13,8 @@ from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
-from meowdoku.game import EXAMPLE_PUZZLE, GameSession, cells_between
+from meowdoku.game import EXAMPLE_PUZZLE, GameSession, cells_between, error_text
+from meowdoku.messages import pick_language
 from meowdoku.puzzle import Cell, MeowdokuError
 
 View = dict[str, Any]
@@ -31,8 +32,10 @@ class Bridge:
         self.session = GameSession.from_text(EXAMPLE_PUZZLE)
         self._pressed: Cell | None = None
         self._dragged_to: Cell | None = None
+        self._opening = ""  # the name of the file being opened, for error messages
         self._actions: dict[str, Callable[..., None]] = {
             "open": self.open,
+            "language": self.language,
             "press": self.press,
             "move": self.move,
             "release": self.release,
@@ -63,15 +66,20 @@ class Bridge:
             action = self._actions[message["action"]]
             action(*message.get("args", []))
         except (MeowdokuError, OSError) as exc:
-            error = str(exc)
+            error = error_text(exc, Path(self._opening), self.session.language)
         except (KeyError, TypeError, ValueError) as exc:
             error = f"bad request: {exc!r}"
         return json.dumps(self.view(error))
 
     def open(self, path: str) -> None:
-        """Open a screenshot the worker saved in Pyodide's file system (R11.5)."""
-        self.session = GameSession.from_screenshot(Path(path))
+        """Open a screenshot the worker saved, under the player's file name, in Pyodide's file system (R11.5)."""
+        self._opening = path
+        self.session = GameSession.from_screenshot(Path(path), self.session.language)
         self._pressed = self._dragged_to = None
+
+    def language(self, *preferred: str) -> None:
+        """Word messages and hints in the first of `preferred` that the app offers (R12.2, R12.3)."""
+        self.session.set_language(pick_language(list(preferred)))
 
     def press(self, row: int, col: int) -> None:
         self._pressed, self._dragged_to = (row, col), None
@@ -127,4 +135,5 @@ class Bridge:
             "shake": None if session.shake is None else list(session.shake),
             "just_solved": session.just_solved,
             "error": error,
+            "language": session.language,
         }

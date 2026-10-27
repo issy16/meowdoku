@@ -78,6 +78,13 @@ AJ*JAAAAAA
 
 `python -m meowdoku SCREENSHOT` does the same thing.
 
+### Languages
+
+Everything can be read in English, 繁體中文 (Taiwan), 日本語, or 한국어,
+hints included: pick one from the web app's menu or the desktop window's
+Language menu, or pass `--language zh-TW` (or `en`, `ja`, `ko`) to the
+`meowdoku` command. The wording lives in `src/meowdoku/messages.py`.
+
 ### Web app (prototype)
 
 The same game runs in a browser, on computers and phones, at

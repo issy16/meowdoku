@@ -4,8 +4,9 @@
     python web/assemble.py --serve      serve it at http://localhost:8000/meowdoku/
 
 The folder holds the page, its styles and scripts, meowdoku.zip (the Python
-package plus timings.py, which the web worker unpacks), and a sample
-screenshot. GitHub Pages publishes it at https://issy16.github.io/meowdoku/,
+package plus timings.py, which the web worker unpacks), labels.json (the
+page's wording in every language, from meowdoku/messages.py, R12.1), and a
+sample screenshot. GitHub Pages publishes it at https://issy16.github.io/meowdoku/,
 so --serve puts it under /meowdoku/ too, and path mistakes show up locally
 (R11.14). Standard library only.
 """
@@ -13,6 +14,7 @@ so --serve puts it under /meowdoku/ too, and path mistakes show up locally
 import argparse
 import functools
 import http.server
+import json
 import shutil
 import sys
 import tempfile
@@ -45,6 +47,15 @@ def write_zip(target: Path) -> None:
             archive.writestr(info, source.read_bytes())
 
 
+def write_labels(target: Path) -> None:
+    """The page's wording in every language, so it can show "Loading…" before Python starts."""
+    sys.path.insert(0, str(PACKAGE.parent))
+    from meowdoku.messages import LANGUAGES, labels
+
+    data = {"languages": LANGUAGES, "labels": {code: labels(code) for code in LANGUAGES}}
+    target.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+
+
 def assemble(out: Path) -> Path:
     """Write the site into `out` (created if needed) and return it."""
     out.mkdir(parents=True, exist_ok=True)
@@ -52,6 +63,7 @@ def assemble(out: Path) -> Path:
         shutil.copyfile(WEB / name, out / name)
     shutil.copyfile(SAMPLE, out / "sample.png")
     write_zip(out / "meowdoku.zip")
+    write_labels(out / "labels.json")
     return out
 
 

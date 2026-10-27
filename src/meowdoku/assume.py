@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from itertools import combinations
 
 from meowdoku.deduce import Deduction, Technique, Unit, all_units, find_deduction, has_cat, open_cells
-from meowdoku.puzzle import Cell, Puzzle, count_of
+from meowdoku.messages import Count, Message
+from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.state import BoardState, Mark
 
 
@@ -20,8 +21,8 @@ class Break:
     """Why a board can't be finished: the cells involved and how to say it."""
 
     cells: frozenset[Cell]
-    would: str
-    sentence: str
+    would: Message
+    sentence: Message
 
 
 @dataclass(frozen=True)
@@ -98,11 +99,7 @@ def _empty_unit(units: Sequence[Unit], state: BoardState) -> Break | None:
     for unit in units:
         if not has_cat(unit, state) and not open_cells(unit.cells, state):
             name = _unit_phrase(unit)
-            return Break(
-                unit.cells,
-                f"{name} would have no room for its cat",
-                f"That leaves {name} with no room for its cat.",
-            )
+            return Break(unit.cells, Message("would.empty", unit=name), Message("breaks.empty", unit=name))
     return None
 
 
@@ -111,10 +108,11 @@ def _crowded_unit(units: Sequence[Unit], state: BoardState) -> Break | None:
         cats = unit.cells & state.cats
         if len(cats) > 1:
             name = _unit_phrase(unit)
+            count = Count(len(cats), "cat")
             return Break(
                 frozenset(cats),
-                f"{name} would have {count_of(len(cats), 'cat')}",
-                f"That puts {count_of(len(cats), 'cat')} in {name}.",
+                Message("would.crowded", unit=name, cats=count),
+                Message("breaks.crowded", unit=name, cats=count),
             )
     return None
 
@@ -122,13 +120,15 @@ def _crowded_unit(units: Sequence[Unit], state: BoardState) -> Break | None:
 def _touching_cats(state: BoardState) -> Break | None:
     for (r1, c1), (r2, c2) in combinations(sorted(state.cats), 2):
         if abs(r1 - r2) <= 1 and abs(c1 - c2) <= 1:
-            return Break(frozenset({(r1, c1), (r2, c2)}), "2 cats would touch", "That makes 2 cats touch.")
+            return Break(frozenset({(r1, c1), (r2, c2)}), Message("would.touch"), Message("breaks.touch"))
     return None
 
 
-def _unit_phrase(unit: Unit) -> str:
+def _unit_phrase(unit: Unit) -> Message:
     """Regions by name (the GUI turns it into a color), rows and columns as "this row" (R7.3)."""
-    return unit.name if unit.kind == "region" else f"this {unit.kind}"
+    if unit.kind == "region":
+        return Message("unit.region", region=unit.region)
+    return Message(f"unit.this_{unit.kind}")
 
 
 # Explanation
@@ -136,17 +136,17 @@ def _unit_phrase(unit: Unit) -> str:
 
 def explain(proof: Proof) -> Deduction:
     """Turn a proof into a hint: the opposite mark, a short reason, and the steps (R7.9)."""
-    when = "right away" if not proof.trace else f"after {count_of(len(proof.trace), 'step')}"
+    when = Message("when.now") if not proof.trace else Message("when.after", steps=Count(len(proof.trace), "step"))
     if proof.assumed is Mark.CAT:
-        supposition, conclusion = "Suppose it has a cat.", "So this cell can't have a cat."
-        reason = f"If this cell had a cat, {proof.broken.would} {when}, so it can't have a cat."
+        supposition, conclusion = Message("d6.suppose_cat"), Message("d6.so_no_cat")
+        reason = Message("d6.cat", would=proof.broken.would, when=when)
         place_cat, cross_out = None, frozenset({proof.cell})
     else:
-        supposition, conclusion = "Suppose it has no cat.", "So the cat goes here."
-        reason = f"If this cell had no cat, {proof.broken.would} {when}, so the cat goes here."
+        supposition, conclusion = Message("d6.suppose_no_cat"), Message("d6.so_cat")
+        reason = Message("d6.no_cat", would=proof.broken.would, when=when)
         place_cat, cross_out = proof.cell, frozenset()
     steps = (
-        "Look at this cell.",
+        Message("d6.look"),
         supposition,
         *(_then(deduction.reason) for deduction in proof.trace),
         proof.broken.sentence,
@@ -163,6 +163,6 @@ def explain(proof: Proof) -> Deduction:
     )
 
 
-def _then(reason: str) -> str:
+def _then(reason: Message) -> Message:
     """"This row has only 1 cell left." -> "Then this row has only 1 cell left."."""
-    return f"Then {reason[0].lower()}{reason[1:]}"
+    return Message("d6.then", reason=reason)

@@ -4,19 +4,20 @@ The GUI only draws a GameSession and forwards clicks and button presses to it.
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import cached_property
 from pathlib import Path
 from typing import Self
 
 from meowdoku.assume import apply, find_break
-from meowdoku.colors import name_regions, region_phrases
+from meowdoku.colors import region_phrases
 from meowdoku.deduce import Deduction
 from meowdoku.hints import Hint, HintKind, next_hint
 from meowdoku.image_import import import_screenshot
+from meowdoku.messages import DEFAULT_LANGUAGE, Message, render
 from meowdoku.parser import parse_puzzle
-from meowdoku.puzzle import Cell, Puzzle
+from meowdoku.puzzle import Cell, MeowdokuError, Puzzle
 from meowdoku.rules import is_valid_solution
 from meowdoku.solver import SolveResult, SolveStatus, solve
 from meowdoku.state import BoardState, Mark
@@ -47,6 +48,14 @@ PALETTE = (
     "#aeea00",  # lime
 )
 
+
+
+def error_text(error: OSError | MeowdokuError, path: Path, language: str = DEFAULT_LANGUAGE) -> str:
+    """Why a screenshot couldn't be opened, in `language` (R8.8, R12.1)."""
+    if isinstance(error, MeowdokuError):
+        return error.text(language)
+    reason = error.strerror or str(error)
+    return render(Message("err.cannot_read", name=path.name, reason=reason), language)
 
 
 class Highlight(Enum):
@@ -111,7 +120,7 @@ class Frame:
     what_if: frozenset[Cell]
     ring: frozenset[Cell]
     style: Highlight
-    caption: str
+    caption: Message
 
 
 def walkthrough(puzzle: Puzzle, state: BoardState, deduction: Deduction) -> tuple[Frame, ...]:
@@ -156,6 +165,8 @@ class GameSession:
 
     puzzle: Puzzle
     colors: Mapping[str, str] = field(default_factory=dict)
+    language: str = DEFAULT_LANGUAGE
+    """The language messages are worded in (R12); change it with set_language."""
     region_phrases: dict[str, str] = field(init=False, default_factory=dict)
     state: BoardState = field(init=False)
     highlight: frozenset[Cell] = field(init=False, default=frozenset())
@@ -172,7 +183,8 @@ class GameSession:
     """Marks that Previous undid, latest last; Next brings them back (R8.13)."""
     _paint_start: BoardState | None = field(init=False, default=None)
     revealed: frozenset[Cell] = field(init=False, default=frozenset())
-    message: str = field(init=False, default="")
+    _message: Message | str = field(init=False, default="")
+    """What the message line says, worded in any language by the `message` property."""
     shake: Cell | None = field(init=False, default=None)
     """The cell where the last click put a wrong cat; the window shakes it (R8.9)."""
     just_solved: bool = field(init=False, default=False)
@@ -187,7 +199,7 @@ class GameSession:
     def __post_init__(self) -> None:
         if not self.colors:
             self.colors = default_region_colors(self.puzzle)
-        self.region_phrases = region_phrases(self.colors)
+        self.region_phrases = region_phrases(self.colors, self.language)
         self.state = BoardState.empty(self.puzzle.size)
 
     @classmethod
@@ -195,14 +207,33 @@ class GameSession:
         """For the built-in example puzzle and tests; players open screenshots."""
         return cls(parse_puzzle(text))
 
+    def set_language(self, language: str) -> None:
+        """Word everything in `language` from now on, a shown hint included (R12.2). Marks don't change."""
+        self.language = language
+        self.region_phrases = region_phrases(self.colors, language)
+
+    def text(self, message: Message | str) -> str:
+        """A message in the session's language, naming regions by color (R7.8, R12.4)."""
+        return render(message, self.language, self.region_phrases)
+
+    @property
+    def message(self) -> str:
+        """The message line, in the session's language."""
+        return self.text(self._message)
+
+    @property
+    def caption(self) -> str:
+        """The shown Show me frame's line, in the session's language, or "" when it's closed."""
+        return self.text(self.frame.caption) if self.frame else ""
+
     @classmethod
-    def from_screenshot(cls, path: Path) -> Self:
+    def from_screenshot(cls, path: Path, language: str = DEFAULT_LANGUAGE) -> Self:
         """Open a screenshot, starting from its cats and ✕ marks (R8.5, R9.1a).
 
-        Raises OSError or MeowdokuError for files that can't be used.
+        Raises OSError or MeowdokuError for files that can't be used; error_text words them.
         """
         imported = import_screenshot(path)
-        session = cls(imported.puzzle, imported.colors)
+        session = cls(imported.puzzle, imported.colors, language)
         session.state = BoardState(imported.puzzle.size, imported.cats, imported.crosses)
         return session
 
@@ -304,7 +335,7 @@ class GameSession:
 
     def _show_hint(self) -> None:
         hint = next_hint(self.puzzle, self.state)
-        self.message = name_regions(hint.message, self.region_phrases)
+        self._message = hint.message
         self.highlight = hint.focus
         self.hint_shown = True
         if hint.kind is HintKind.DEDUCTION and hint.deduction is not None:
@@ -353,8 +384,7 @@ class GameSession:
         if not self.can_show_me:
             return
         assert self.applicable is not None and self.applicable.deduction is not None
-        frames = walkthrough(self.puzzle, self.state, self.applicable.deduction)
-        self.frames = tuple(replace(f, caption=name_regions(f.caption, self.region_phrases)) for f in frames)
+        self.frames = walkthrough(self.puzzle, self.state, self.applicable.deduction)
         self.frame_number = 0
 
     def next_frame(self) -> None:
@@ -392,7 +422,7 @@ class GameSession:
         self._show_hint()
         if self.applicable is not None:
             self.stepping = True
-            self.message = f"Step {self.step_number}: {self.message}"
+            self._message = Message("game.step", number=self.step_number, text=self._message)
 
     def solve(self) -> None:
         """Show a solution over the player's marks, or hide it if it's showing (R8.5).
@@ -407,7 +437,7 @@ class GameSession:
             return
         result = self.solve_result
         if result.status is SolveStatus.NONE:
-            self.message = "This puzzle has no solution."
+            self._message = Message("hint.no_solution")
             return
         self.revealed = result.solutions[0].cats
 
@@ -456,7 +486,7 @@ class GameSession:
         self.hint_shown = False
         self.applicable = None
         self.stepping = False
-        self.message = ""
+        self._message = ""
         self.shake = None
         self.just_solved = False
         self.close_show_me()

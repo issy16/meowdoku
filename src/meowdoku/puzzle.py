@@ -6,6 +6,8 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import Self
 
+from meowdoku.messages import DEFAULT_LANGUAGE, Count, Message, Region, render
+
 Cell = tuple[int, int]
 """A board position as (row, col), 0-indexed."""
 
@@ -14,7 +16,13 @@ MAX_SIZE = 16
 
 
 class MeowdokuError(Exception):
-    """Base class for all user-facing errors."""
+    """Base class for all user-facing errors.
+
+    Raised with a Message, the error can be worded in any language (R12.1).
+    """
+
+    def text(self, language: str = DEFAULT_LANGUAGE) -> str:
+        return render(self.args[0], language) if self.args else ""
 
 
 class PuzzleFormatError(MeowdokuError):
@@ -32,14 +40,17 @@ class PuzzleValidationError(MeowdokuError):
 
     def __init__(self, problems: Sequence[str]) -> None:
         self.problems = tuple(problems)
-        details = "\n".join(f"  - {problem}" for problem in self.problems)
-        super().__init__(f"invalid puzzle:\n{details}")
+        super().__init__(self.text())
+
+    def text(self, language: str = DEFAULT_LANGUAGE) -> str:
+        details = "\n".join(f"  - {render(problem, language)}" for problem in self.problems)
+        return f"{render(Message('err.invalid'), language)}\n{details}"
 
 
-def describe_cell(cell: Cell) -> str:
+def describe_cell(cell: Cell) -> Message:
     """Describe a cell for users, 1-indexed (R6.4)."""
     row, col = cell
-    return f"row {row + 1}, column {col + 1}"
+    return Message("cell", row=row + 1, column=col + 1)
 
 
 def count_of(count: int, noun: str) -> str:
@@ -120,7 +131,7 @@ def find_structure_problems(size: int, regions: Sequence[Sequence[str]]) -> list
 
 def _size_problems(size: int) -> list[str]:
     if not MIN_SIZE <= size <= MAX_SIZE:
-        return [f"board size {size} is not supported; it must be between {MIN_SIZE} and {MAX_SIZE}"]
+        return [Message("err.board_size", size=size, min=MIN_SIZE, max=MAX_SIZE)]
     return []
 
 
@@ -147,10 +158,7 @@ def _is_valid_label(label: object) -> bool:
 def _region_count_problems(size: int, regions: Sequence[Sequence[str]]) -> list[str]:
     labels = list(group_cells_by_label(regions))
     if len(labels) != size:
-        return [
-            f"found {count_of(len(labels), 'region')} ({', '.join(labels)}); "
-            f"a {size}x{size} board needs exactly {size}"
-        ]
+        return [Message("err.region_count", regions=Count(len(labels), "region"), labels=", ".join(labels), size=size)]
     return []
 
 
@@ -159,12 +167,17 @@ def _connectivity_problems(regions: Sequence[Sequence[str]]) -> list[str]:
     for label, cells in group_cells_by_label(regions).items():
         parts = connected_parts(cells)
         if len(parts) > 1:
-            starts = " and ".join(describe_cell(min(part)) for part in parts)
-            problems.append(
-                f"region {label!r} is split into {len(parts)} separate parts "
-                f"(starting at {starts}); every region must be one connected area"
-            )
+            problems.append(Message("err.split", region=Region(label), parts=len(parts), starts=_joined(parts)))
     return problems
+
+
+def _joined(parts: Sequence[frozenset[Cell]]) -> Message:
+    """Where each part starts: "row 1, column 1 and row 3, column 2"."""
+    starts = [describe_cell(min(part)) for part in parts]
+    joined = starts[0]
+    for start in starts[1:]:
+        joined = Message("err.and", first=joined, second=start)
+    return joined
 
 
 def connected_parts(cells: frozenset[Cell]) -> list[frozenset[Cell]]:

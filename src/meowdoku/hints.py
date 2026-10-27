@@ -9,14 +9,15 @@ from enum import Enum
 
 from meowdoku.assume import find_contradiction
 from meowdoku.deduce import Deduction, find_deduction
+from meowdoku.messages import Message
 from meowdoku.puzzle import Cell, Puzzle
 from meowdoku.rules import Rule, RuleViolation, find_conflicts, is_valid_solution
 from meowdoku.solver import Solution, SolveResult, SolveStatus, iter_solutions, solve
 from meowdoku.state import BoardState
 
-NO_SOLUTION_MESSAGE = "This puzzle has no solution."
-SOLVED_MESSAGE = "The puzzle is solved!"
-NO_SIMPLE_STEP_MESSAGE = "No simple step found; try Solve."
+NO_SOLUTION_MESSAGE = Message("hint.no_solution")
+SOLVED_MESSAGE = Message("hint.solved")
+NO_SIMPLE_STEP_MESSAGE = Message("hint.no_step")
 
 
 class HintKind(Enum):
@@ -37,7 +38,7 @@ class Hint:
     """
 
     kind: HintKind
-    message: str
+    message: Message
     focus: frozenset[Cell] = field(default_factory=frozenset)
     deduction: Deduction | None = None
 
@@ -73,13 +74,13 @@ def _find_broken_rule(puzzle: Puzzle, state: BoardState) -> Hint | None:
     return Hint(HintKind.RULE_BROKEN, _broken_rule_message(first), frozenset(first.cells))
 
 
-def _broken_rule_message(violation: RuleViolation) -> str:
+def _broken_rule_message(violation: RuleViolation) -> Message:
     """Short, since the hint highlights the cats: "These cats touch." or "This row has 2 cats."."""
     if violation.rule is Rule.ADJACENT:
-        return "These cats touch."
+        return Message("hint.touch")
     if violation.rule is Rule.OUT_OF_BOUNDS:
-        return "This cat is off the board."
-    return f"This {violation.rule.value} has {len(violation.cells)} cats."
+        return Message("hint.off_board")
+    return Message(f"hint.crowded.{violation.rule.value}", n=len(violation.cells))
 
 
 def _find_mistake(puzzle: Puzzle, state: BoardState, result: SolveResult) -> Hint | None:
@@ -91,12 +92,12 @@ def _find_mistake(puzzle: Puzzle, state: BoardState, result: SolveResult) -> Hin
             return None
         return Hint(
             HintKind.MISTAKE,
-            "This mark is wrong.",
+            Message("hint.wrong_mark"),
             frozenset({wrong[0]}),
         )
     if any(_matches(solution, state) for solution in iter_solutions(puzzle)):
         return None
-    return Hint(HintKind.MISTAKE, "Some of your marks are wrong.")
+    return Hint(HintKind.MISTAKE, Message("hint.some_wrong"))
 
 
 def _matches(solution: Solution, state: BoardState) -> bool:

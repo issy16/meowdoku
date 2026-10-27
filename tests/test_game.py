@@ -713,6 +713,6 @@ def test_r8_14_captions_name_regions_by_color() -> None:
     else:
         pytest.fail("no D6 hint about a region")
     session.show_me()
-    breaks = session.frames[-2].caption
-    assert breaks.startswith("That leaves the ") and breaks.endswith(" region with no room for its cat.")
-    assert all("region '" not in frame.caption for frame in session.frames)
+    captions = [session.text(frame.caption) for frame in session.frames]
+    assert captions[-2].startswith("That leaves the ") and captions[-2].endswith(" region with no room for its cat.")
+    assert all("region '" not in caption for caption in captions)
