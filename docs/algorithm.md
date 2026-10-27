@@ -321,6 +321,27 @@ Step 5 was added at the same time, when marks went from ignored to read.
 - A square, colorful ad could be mistaken for the board if it is larger
   than the board. The real board fills the screen width, so this is unlikely.
 
+## Web app timings (R11.12)
+
+Measured with the prototype's Timings panel (`web/timings.py`): open the
+sample screenshot (`IMG_7117.PNG`, 10×10 with marks), then hint and Apply
+from an empty board until solved (25 hints, one of them D6).
+
+| Step | Desktop Python 3.12 (Mac) | Pyodide 314.0.7 (Chromium, same Mac) | Phone |
+|---|---|---|---|
+| Start Python (first visit, nothing cached) | – | 13.9 s | to measure |
+| Load Pillow | – | 1.8 s | to measure |
+| Load meowdoku | – | 1.5 s | to measure |
+| Screenshot import | 369 ms | 608 ms | to measure |
+| Solve (first time) | 4 ms | 5 ms | to measure |
+| Slowest hint (the D6 one) | 81 ms | 115 ms | to measure |
+| All 25 hints | 358 ms | 511 ms | to measure |
+
+Playing is fast enough in the browser; hints take about 1.4 times as long
+as on desktop Python. Starting Python is the slow part, and it was measured
+from a local server on the first visit; the published site and a second
+visit (from the browser's cache) still need measuring.
+
 ## Alternatives considered
 
 | Approach | Why not (for now) |

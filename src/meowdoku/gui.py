@@ -17,7 +17,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 from types import TracebackType
 
-from meowdoku.game import EXAMPLE_PUZZLE, GameSession, Highlight
+from meowdoku.game import EXAMPLE_PUZZLE, GameSession, Highlight, cells_between
 from meowdoku.puzzle import Cell, MeowdokuError
 from meowdoku.state import BoardState
 
@@ -180,23 +180,6 @@ def cell_at(x: int, y: int, cell_size: int, board_size: int) -> Cell | None:
     if row < board_size and col < board_size:
         return (row, col)
     return None
-
-
-def cells_between(start: Cell, end: Cell) -> list[Cell]:
-    """The cells on a straight line from `start` to `end`, both included.
-
-    A fast drag skips cells between two mouse events; this fills them in.
-    """
-    steps = max(abs(end[0] - start[0]), abs(end[1] - start[1]))
-    if steps == 0:
-        return [start]
-    return [
-        (
-            round(start[0] + (end[0] - start[0]) * i / steps),
-            round(start[1] + (end[1] - start[1]) * i / steps),
-        )
-        for i in range(steps + 1)
-    ]
 
 
 def rounded_rect_points(box: Box, radius: float) -> list[float]:

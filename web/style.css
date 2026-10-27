@@ -1,0 +1,163 @@
+/* The look of the desktop window (R8.2): rounded tiles with white gaps on a
+   white card, on a beige page. Colors match gui.py. */
+:root {
+  --page: #f7f2ef;
+  --card: #ffffff;
+  --text: #935a5a;
+  --subtle: #b08a86;
+  --cross: #ffffff;
+  --cat-ink: #262626;
+  --revealed-ink: #9a9a9a;
+  --hint: #f5a700;
+  --problem: #d62828;
+  --apply: #c77400;
+  --accent: #e8873a;
+  --border: #e4d8d2;
+  --board: min(calc(100vw - 32px - 24px), 560px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+}
+
+main {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+}
+
+h1 { font-size: 1.6rem; margin: 0 0 4px; }
+
+#status { margin: 0 0 12px; min-height: 1.3em; color: var(--subtle); }
+#status.busy::after { content: " …"; }
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.board {
+  --n: 5;
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: calc(var(--board) / var(--n) * 0.08);
+  width: var(--board);
+  aspect-ratio: 1;
+  touch-action: none;            /* dragging marks cells instead of scrolling (R11.1a) */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tile {
+  position: relative;
+  border-radius: 18%;
+  display: grid;
+  place-items: center;
+}
+
+.tile.ring::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 22%;
+  border: 3px solid var(--hint);
+  pointer-events: none;
+}
+.tile.ring.problem::after { border-color: var(--problem); }
+
+.tile svg { width: 86%; height: 86%; pointer-events: none; }
+
+.cross {
+  width: 50%;
+  height: 50%;
+  stroke: var(--cross);
+  stroke-linecap: round;
+}
+
+/* Rules can't reach inside <use>, but inherited variables can. */
+.tile { --ink: var(--cat-ink); }
+.cat-outline { fill: #ffffff; stroke: var(--ink); }
+.cat-ink-line { stroke: var(--ink); }
+.cat-ink-fill { fill: var(--ink); }
+.revealed { display: contents; --ink: var(--revealed-ink); }
+
+.tile.shake { animation: shake 0.36s ease-in-out; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-12%); }
+  40%, 80% { transform: translateX(12%); }
+}
+
+.message { min-height: 2.6em; margin: 12px 0; line-height: 1.3; }
+.message.error { color: var(--problem); }
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--apply);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+
+button {
+  font: inherit;
+  touch-action: manipulation;
+}
+
+.buttons button {
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  cursor: pointer;
+}
+.buttons button:disabled { opacity: 0.45; cursor: default; }
+
+.timings { margin-top: 24px; font-size: 0.9rem; }
+.timings summary { cursor: pointer; }
+.timings table { border-collapse: collapse; margin: 8px 0 12px; }
+.timings td { padding: 2px 16px 2px 0; }
+.timings td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
+.popup {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.12);
+}
+.popup[hidden] { display: none; }
+
+.popup-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  padding: 24px 40px;
+  text-align: center;
+}
+.popup-title { font-size: 1.4rem; font-weight: 600; margin: 0 0 4px; }
+.popup-subtitle { color: var(--subtle); margin: 0 0 16px; }
+#popup-ok {
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--card);
+  padding: 8px 32px;
+  cursor: pointer;
+}

@@ -82,6 +82,23 @@ def crossed_out_by(puzzle: Puzzle, cat: Cell) -> frozenset[Cell]:
     )
 
 
+def cells_between(start: Cell, end: Cell) -> list[Cell]:
+    """The cells on a straight line from `start` to `end`, both included.
+
+    A fast drag skips cells between two mouse events; this fills them in.
+    """
+    steps = max(abs(end[0] - start[0]), abs(end[1] - start[1]))
+    if steps == 0:
+        return [start]
+    return [
+        (
+            round(start[0] + (end[0] - start[0]) * i / steps),
+            round(start[1] + (end[1] - start[1]) * i / steps),
+        )
+        for i in range(steps + 1)
+    ]
+
+
 @dataclass(frozen=True)
 class Frame:
     """One step of Show me (R8.14): a board to draw and the line that explains it.

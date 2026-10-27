@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Meowdoku</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Every path here is relative to the page, so the app works under /meowdoku/ (R11.14). -->
+  <main>
+    <h1>Meowdoku</h1>
+    <p id="status" role="status">Loading Python…</p>
+
+    <div class="card">
+      <div id="board" class="board" aria-label="Puzzle board"></div>
+    </div>
+
+    <p id="message" class="message" aria-live="polite"></p>
+
+    <div class="buttons">
+      <button id="open" type="button">Open</button>
+      <button id="previous" type="button">Previous</button>
+      <button id="next" type="button">Next</button>
+      <button id="hint" type="button">Hint</button>
+      <button id="solve" type="button">Solve</button>
+      <button id="reset" type="button">Reset</button>
+    </div>
+    <input id="file" type="file" accept="image/png,image/jpeg" hidden>
+
+    <details class="timings">
+      <summary>Timings</summary>
+      <p>How long each step took in this browser (R11.12).</p>
+      <table><tbody id="timings"></tbody></table>
+      <div class="buttons">
+        <button id="sample" type="button">Open sample screenshot</button>
+        <button id="measure" type="button">Measure hints and Solve</button>
+      </div>
+    </details>
+  </main>
+
+  <div id="popup" class="popup" hidden>
+    <div class="popup-card" role="dialog" aria-labelledby="popup-title">
+      <p id="popup-title" class="popup-title">Puzzle solved!</p>
+      <p class="popup-subtitle">Well done!</p>
+      <button id="popup-ok" type="button">OK</button>
+    </div>
+  </div>
+
+  <!-- The lucky cat face (R8.2), drawn in shares of a tile like gui.py's. -->
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <symbol id="cat" viewBox="0 0 100 100">
+      <g class="cat-outline" stroke-width="4.5" stroke-linejoin="round">
+        <polygon points="10,52 17,4 46,28"/>
+        <polygon points="90,52 83,4 54,28"/>
+        <ellipse cx="50" cy="58" rx="43" ry="36"/>
+      </g>
+      <g class="cat-ink-line" stroke-width="3.6" fill="none" stroke-linecap="round">
+        <polyline points="19,30 20,13 33,24"/>
+        <polyline points="81,30 80,13 67,24"/>
+        <line x1="44" y1="28" x2="44" y2="38"/>
+        <line x1="50" y1="28" x2="50" y2="38"/>
+        <line x1="56" y1="28" x2="56" y2="38"/>
+        <ellipse cx="31" cy="54.5" rx="10" ry="6.5"/>
+        <ellipse cx="69" cy="54.5" rx="10" ry="6.5"/>
+        <path d="M41 75 Q45.5 79 50 74 Q54.5 79 59 75"/>
+      </g>
+      <g class="cat-ink-fill">
+        <ellipse cx="31" cy="54.5" rx="3.5" ry="5.5"/>
+        <ellipse cx="69" cy="54.5" rx="3.5" ry="5.5"/>
+        <polygon points="46,67 54,67 50,71"/>
+      </g>
+    </symbol>
+  </svg>
+
+  <script src="app.js"></script>
+</body>
+</html>

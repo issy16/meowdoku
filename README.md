@@ -78,6 +78,17 @@ AJ*JAAAAAA
 
 `python -m meowdoku SCREENSHOT` does the same thing.
 
+### Web app (prototype)
+
+The same game runs in a browser, on computers and phones, at
+<https://issy16.github.io/meowdoku/>. Python runs on your device through
+Pyodide; screenshots are never uploaded. To try it locally under the same
+`/meowdoku/` path:
+
+```bash
+python web/assemble.py --serve   # then open http://localhost:8000/meowdoku/
+```
+
 ## Playing in a window
 
 ```bash
@@ -165,3 +176,5 @@ docs/              requirements and algorithm design
 6. Board state and next-available hints ✅
 7. Colored-board GUI (tkinter) ✅
 8. Screenshot import (Pillow) ✅ (tuned on three real screenshots)
+9. Web app prototype (Pyodide) at <https://issy16.github.io/meowdoku/> 🚧
+   (no sign-in or saving yet; see R11)

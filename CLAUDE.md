@@ -47,6 +47,14 @@ source .venv/bin/activate
 python -m pytest          # run all tests; must pass before every commit
 ```
 
+Serve the web app locally at http://localhost:8000/meowdoku/ (reassembled on
+each page load), or write the site that GitHub Pages publishes:
+
+```bash
+python web/assemble.py --serve
+python web/assemble.py _site
+```
+
 Build the shareable Mac app (writes `dist/`, which is not committed):
 
 ```bash
@@ -70,8 +78,13 @@ src/meowdoku/
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
   gui.py           thin tkinter wrapper: drawing and event handling only
-  bridge.py        (planned, R11.2) web actions -> GameSession -> plain board description
-web/               (planned, R11) page, styles, scripts, and web worker; no game logic
+  bridge.py        web actions (JSON) -> GameSession -> plain board description (R11.2)
+web/
+  index.html, style.css, app.js   the page: draws the board, sends taps and buttons; no game logic
+  worker.js        web worker: loads Pyodide, Pillow, and meowdoku.zip, answers through bridge.py
+  timings.py       prototype measurements for R11.12 (shipped in meowdoku.zip)
+  assemble.py      builds the site (page files, meowdoku.zip, sample.png); --serve under /meowdoku/
+.github/workflows/pages.yml   tests, assembles, and publishes the site to GitHub Pages
 ```
 
 Allowed imports (everything may import `puzzle`):

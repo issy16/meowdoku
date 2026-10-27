@@ -346,7 +346,11 @@ their game on another device. The desktop app (R8, R10) stays.
   and JavaScript with no build step, a browser test tool, and GitHub's own
   Pages actions in a workflow that publishes `web/` and the `meowdoku`
   package (R11.13). Its code lives in `web/`; `src/meowdoku/` keeps NFR1.
-  Each is named here when chosen.
+  Each is named here when chosen. Chosen so far: Pyodide 314.0.7 (Python
+  3.14, Pillow 12.2) from jsDelivr, loaded in a module worker; GitHub's
+  `checkout`, `setup-python`, `configure-pages`, `upload-pages-artifact`,
+  and `deploy-pages` actions in `.github/workflows/pages.yml`. The sign-in
+  service and the browser test tool are still to be chosen.
 
 ## Out of scope (for now)
 
