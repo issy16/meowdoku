@@ -240,7 +240,7 @@ h1 { font-size: 1.6rem; margin: 0; }
 .buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 /* The game's buttons sit in a fixed grid, four to a row, with Step by Step
-   taking two cells. Every button keeps its place whatever its label says,
+   taking the last two cells, on the right. Every button keeps its place whatever its label says,
    so Step by Step and Next Step are always in the same spot. */
 .controls {
   display: grid;

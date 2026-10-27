@@ -332,9 +332,9 @@ class MeowdokuApp:
             ("ui.previous", lambda: self._run(self.session.undo)),
             ("ui.next", lambda: self._run(self.session.redo)),
             ("ui.hint", lambda: self._run(self.session.hint)),
-            ("ui.step", lambda: self._run(self.session.step)),
             ("ui.solve", lambda: self._run(self.session.solve)),
             ("ui.reset", lambda: self._run(self.session.reset)),
+            ("ui.step", lambda: self._run(self.session.step)),  # last, on the right, as in the web app
         ):
             button = tk.Button(toolbar, command=command)
             button.pack(side="left", padx=(0, 6))
