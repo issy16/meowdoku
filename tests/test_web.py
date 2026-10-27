@@ -109,3 +109,25 @@ def test_r12_1_every_button_is_worded_before_python_loads() -> None:
     assert buttons
     for button in buttons:
         assert "data-label=" in button or "data-name=" in button, button
+
+
+def test_r11_7a_each_release_asks_for_its_own_files(tmp_path: Path) -> None:
+    """A browser's cached old app.js can't run with a new page: every reference carries the release's version."""
+    out = assemble.assemble(tmp_path / "site")
+    page = (out / "index.html").read_text() + (out / "app.js").read_text() + (out / "worker.js").read_text()
+    versions = set(re.findall(r'"(?:style\.css|app\.js|worker\.js|labels\.json|meowdoku\.zip)\?v=(\w+)"', page))
+    assert len(versions) == 1
+    for name in assemble.STAMPED:
+        assert f'"{name}"' not in page  # nothing left unstamped
+    assert not ROOT_PATH.search(page)
+
+
+def test_r11_7a_the_version_changes_with_the_files(tmp_path: Path) -> None:
+    first = assemble.assemble(tmp_path / "a")
+    second = assemble.assemble(tmp_path / "b")
+    assert (first / "index.html").read_text() == (second / "index.html").read_text()  # same files, same version
+    (second / "app.js").write_text("changed")
+    for name in assemble.PAGE_FILES:
+        if name != "app.js":
+            (second / name).write_text((assemble.WEB / name).read_text())
+    assert assemble.stamp(second) != re.search(r"\?v=(\w+)", (first / "index.html").read_text()).group(1)

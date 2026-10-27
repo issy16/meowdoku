@@ -13,6 +13,7 @@ so --serve puts it under /meowdoku/ too, and path mistakes show up locally
 
 import argparse
 import functools
+import hashlib
 import importlib
 import http.server
 import json
@@ -62,6 +63,30 @@ def write_labels(target: Path, fresh: bool = False) -> None:
     target.write_text(json.dumps(data, ensure_ascii=False, indent=1))
 
 
+STAMPED = ("style.css", "app.js", "worker.js", "labels.json", "meowdoku.zip")
+"""Files the page loads by name; each release asks for them as name?v=<version>."""
+REFERRERS = ("index.html", "app.js", "worker.js")
+
+
+def stamp(out: Path) -> str:
+    """Make the page ask for this release's own files, so a browser never mixes in cached old ones.
+
+    GitHub Pages lets browsers keep files for 10 minutes. Adding ?v=<version>
+    to each reference, where the version comes from the files' contents, makes
+    a new page fetch new scripts at once. Returns the version.
+    """
+    digest = hashlib.sha256()
+    for name in STAMPED + REFERRERS:
+        digest.update((out / name).read_bytes())
+    version = digest.hexdigest()[:10]
+    for name in REFERRERS:
+        text = (out / name).read_text()
+        for stamped in STAMPED:
+            text = text.replace(f'"{stamped}"', f'"{stamped}?v={version}"')
+        (out / name).write_text(text)
+    return version
+
+
 def assemble(out: Path, fresh: bool = False) -> Path:
     """Write the site into `out` (created if needed) and return it."""
     out.mkdir(parents=True, exist_ok=True)
@@ -70,6 +95,7 @@ def assemble(out: Path, fresh: bool = False) -> Path:
     shutil.copyfile(SAMPLE, out / "sample.png")
     write_zip(out / "meowdoku.zip")
     write_labels(out / "labels.json", fresh)
+    stamp(out)
     return out
 
 
