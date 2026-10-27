@@ -99,7 +99,7 @@ Pyodide; screenshots are never uploaded. To try it locally under the same
 `/meowdoku/` path:
 
 ```bash
-python web/assemble.py --serve   # then open http://localhost:8000/meowdoku/
+python web/assemble.py --serve   # then open http://localhost:8000/meowdoku/ (add ?timings for the speed panel)
 ```
 
 ## Playing in a window

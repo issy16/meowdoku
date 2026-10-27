@@ -22,6 +22,9 @@ const pending = new Map();
 let view = null;
 let tiles = [];
 
+// The Timings panel is for measuring, not for players: shown only with ?timings (R11.12).
+if (new URLSearchParams(location.search).has("timings")) $("timings-panel").hidden = false;
+
 // Buttons wait for Python, so a press is never silently dropped while it loads.
 const controls = document.querySelectorAll("main button:not(#theme)");
 controls.forEach((button) => { button.disabled = true; });

@@ -308,7 +308,9 @@ their game on another device. The desktop app (R8, R10) stays.
 - **R11.11** A signed-in player can delete their account and saved game.
 - **R11.12** Load and response times are measured in the first prototype on
   a typical laptop and a typical phone; the owner then sets the targets here.
-  NFR5 applies to the desktop app.
+  NFR5 applies to the desktop app. The Timings panel that measures them is
+  hidden from players and appears only when the address ends in `?timings`
+  (hidden at the owner's request).
 - **R11.13** The web app is published with GitHub Pages from this
   repository (`issy16/meowdoku`) at `https://issy16.github.io/meowdoku/`.
   The owner's résumé at `https://issy16.github.io/` comes from a separate

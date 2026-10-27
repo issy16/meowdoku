@@ -46,7 +46,8 @@
     </div>
     <input id="file" type="file" accept="image/png,image/jpeg" hidden>
 
-    <details class="timings">
+    <!-- Hidden from players; add ?timings to the address to measure speed (R11.12). -->
+    <details class="timings" id="timings-panel" hidden>
       <summary data-label="ui.timings">Timings</summary>
       <p data-label="ui.timings_note">How long each step took in this browser (R11.12).</p>
       <table><tbody id="timings"></tbody></table>
