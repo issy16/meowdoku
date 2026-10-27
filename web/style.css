@@ -172,6 +172,16 @@ h1 { font-size: 1.6rem; margin: 0; }
 
 .buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
+/* The game's buttons sit in a fixed grid, four to a row, with Step by Step
+   taking two cells. Every button keeps its place whatever its label says,
+   so Step by Step and Next Step are always in the same spot. */
+.controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.controls #step { grid-column: span 2; }
+
+
 button {
   font: inherit;
   touch-action: manipulation;
@@ -187,6 +197,8 @@ button {
   cursor: pointer;
 }
 .buttons button:disabled { opacity: 0.45; cursor: default; }
+.controls button { padding-left: 4px; padding-right: 4px; white-space: nowrap; }
+@media (max-width: 380px) { .controls button { font-size: 0.85rem; } }  /* the smallest phones */
 
 .timings { margin-top: 24px; font-size: 0.9rem; text-align: left; }
 .timings summary { cursor: pointer; }

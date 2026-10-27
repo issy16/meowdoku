@@ -60,23 +60,9 @@ function applyLabels() {
   document.documentElement.lang = language;
   document.querySelectorAll("[data-label]").forEach((element) => { element.textContent = t(element.dataset.label); });
   $("language").value = language;
-  fitStepButton();
   if (!ready) statusLine.textContent = loadProblem ? t("ui.load_failed", { reason: loadProblem }) : t("ui.loading");
   renderTimings();
   if (view) show(view);
-}
-
-// Wide enough for both Step by Step and Next Step, so switching labels never moves the buttons.
-function fitStepButton() {
-  const button = $("step");
-  const shown = button.textContent;
-  button.style.minWidth = "";
-  const widths = ["ui.step", "ui.next_step"].map((key) => {
-    button.textContent = t(key);
-    return button.getBoundingClientRect().width;
-  });
-  button.textContent = shown;
-  button.style.minWidth = `${Math.ceil(Math.max(...widths))}px`;
 }
 
 function chooseLanguage(code) {
