@@ -256,6 +256,78 @@ Added at the owner's request, so people without Python can use the program.
   receivers approve it once in System Settings; the included text explains
   how.
 
+## R11 Web app with sign-in
+
+Added at the owner's request, so people can play in a browser and pick up
+their game on another device. The desktop app (R8, R10) stays.
+
+- **R11.1** The web app is static files: a page, its scripts, and the
+  `meowdoku` package. It runs the package in the browser with Pyodide, so
+  there is no game server. It supports the current versions of Chrome,
+  Safari, Firefox, and Edge on desktop computers, Safari on iPhone and iPad,
+  and Chrome on Android phones and tablets.
+- **R11.1a** On a phone the board fills the screen's width, upright, with
+  the buttons below it, and nothing scrolls sideways. Touch works like the
+  mouse: a tap is a click, a double tap places a cat, and dragging a finger
+  across cells marks them (R8.10) instead of scrolling the page. Opening a
+  screenshot can pick one from the phone's photos.
+- **R11.2** The page talks to Python only through a small bridge. Each call
+  is one player action (open, click, place cat, drag, hint, apply, solve,
+  reset, previous, next) and returns a plain description of the board: the
+  marks, highlighted cells, message, and which buttons are enabled. The page
+  holds no game logic (as R8.7).
+- **R11.3** Python runs in a web worker, so the page stays responsive while
+  it loads, hints, or solves, and shows that it is busy.
+- **R11.4** Playing follows R8.2–R8.6, R8.9–R8.11, and R8.13 (the look,
+  clicks, double-clicks, drag, Hint with Apply?, Solve, Reset, Previous and
+  Next, the cat check, and the solved pop-up). Step by Step (R8.12) and Show
+  me (R8.14) come in a later release.
+- **R11.5** Opening a screenshot reads it on the player's device, as in R9;
+  the image is never uploaded or stored. Files other than PNG or JPEG, files
+  over 20 MB, and images wider or taller than 8000 pixels are refused with a
+  message.
+- **R11.6** Anyone can play without signing in. Signing in, through the
+  managed sign-in service the owner chooses, lets the game be saved. The
+  page shows who is signed in and has a Sign out button.
+- **R11.7** For a signed-in player, the current game is saved after each
+  move, and after signing in on any supported browser it is restored. Each
+  account has one saved game; opening a new screenshot replaces it.
+- **R11.8** A save holds a format version, the puzzle as a text grid (R3),
+  each region's color, the cats and ✕ marks, and when it was saved. Undo
+  history, hints, and the solution are not saved. Loading a save validates
+  it like any puzzle (R4); a save that is invalid or from an unknown version
+  is reported and the player starts fresh, without crashing.
+- **R11.9** A player can read and change only their own save. The service
+  enforces this, not the page, and the page holds no key that can bypass it.
+- **R11.10** If saving fails, the page says so and keeps the game; it never
+  says a game was saved when it wasn't.
+- **R11.11** A signed-in player can delete their account and saved game.
+- **R11.12** Load and response times are measured in the first prototype on
+  a typical laptop and a typical phone; the owner then sets the targets here.
+- **R11.13** The web app is published with GitHub Pages from this
+  repository (`issy16/meowdoku`) at `https://issy16.github.io/meowdoku/`.
+  The owner's résumé at `https://issy16.github.io/` comes from a separate
+  repository, and nothing in this project changes, moves, or deletes it.
+  The owner may later link to the game from the résumé; that link is the
+  URL above, which stays the same.
+- **R11.14** The app works under the `/meowdoku/` path. Every page, script,
+  style, Python file, and image it loads uses a path relative to the page,
+  never one starting with `/`, so it also works from a local folder.
+  External files, such as Pyodide when loaded from a CDN, use full pinned
+  URLs. The app is one page with no routes of its own: its state never goes
+  in the URL, so reloading or sharing `https://issy16.github.io/meowdoku/`
+  always works, and it needs no fallback page for unknown paths. The
+  prototype is tested served from a `/meowdoku/` folder, not only from the
+  site root.
+- **R11.15** The résumé and the app share the `issy16.github.io` origin, so
+  the browser gives them the same storage. The app names everything it
+  stores with a `meowdoku` prefix and never touches other keys. Where the
+  sign-in service redirects back (for example after an email link), it
+  returns to `https://issy16.github.io/meowdoku/`, and that address, plus a
+  local one for testing, are the only ones allowed in the service's
+  settings. NFR5 applies to
+  the desktop app.
+
 ## Non-functional requirements
 
 - **NFR1** Python 3.11+. Pillow is the one runtime dependency, used only by
@@ -269,12 +341,21 @@ Added at the owner's request, so people without Python can use the program.
   solve in under one second on a typical laptop. Puzzles with no solution or
   several may take longer (accepted by the owner after Milestone 4; timings
   in docs/algorithm.md).
+- **NFR6** The web app (R11) adds, with the owner's approval: a pinned
+  Pyodide release, the sign-in service's browser client, plain HTML, CSS,
+  and JavaScript with no build step, a browser test tool, and GitHub's own
+  Pages actions in a workflow that publishes `web/` and the `meowdoku`
+  package (R11.13). Its code lives in `web/`; `src/meowdoku/` keeps NFR1.
+  Each is named here when chosen.
 
 ## Out of scope (for now)
 
 - Photos of screens, rotated or skewed images
-- Undo/redo, timers, and saving progress
-- Web or mobile interfaces, Windows apps, and signed or notarized Mac apps
+- Timers, and saving progress in the Mac app (the web app saves, R11.8)
+- Phone or tablet apps from an app store, Windows apps, and signed or
+  notarized Mac apps (phones use the web app, R11)
+- Several saved games per account, sharing puzzles, leaderboards, and
+  checking completions on a server (the web app trusts the browser)
 - Puzzle generation
 - Pre-placed cats or marked cells in the input
 - Text puzzle files, or any input other than PNG/JPEG screenshots (text

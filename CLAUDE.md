@@ -16,10 +16,29 @@ without the owner's approval**, and work one approved milestone at a time.
   Only `image_import.py` imports it; the solver, rules, hints, and
   deduction stay standard library only.
 - The GUI uses tkinter (standard library).
+- The web app (R11) lives in `web/`: plain HTML, CSS, and JavaScript with
+  no build step, running `src/meowdoku/` in the browser with a pinned
+  Pyodide release. Its other tools (sign-in client, browser test tool,
+  GitHub Pages actions) are added only once the owner approves each and it
+  is named in NFR6.
 - pytest is the only development dependency, plus PyInstaller as a
   build-only tool for the Mac app (the `[build]` extra, approved by the
   owner). Do not add packages (including Hypothesis) without written
   justification and owner approval.
+
+## Web app rules
+
+- It is published at `https://issy16.github.io/meowdoku/` from this
+  repository. Never change, move, or delete the owner's résumé site
+  (`https://issy16.github.io/`, a separate repository).
+- Paths to the app's own files are relative to the page, never starting
+  with `/`; nothing goes in the URL; test under a `/meowdoku/` folder
+  (R11.14).
+- Everything stored in the browser uses a `meowdoku` prefix (R11.15).
+- No secret or privileged keys in `web/` or anywhere in the repository; the
+  sign-in service enforces who can read each save (R11.9).
+- Guest play always works; sign-in is optional (R11.6). Phones are
+  supported (R11.1a).
 
 ## Commands
 
@@ -51,12 +70,15 @@ src/meowdoku/
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
   gui.py           thin tkinter wrapper: drawing and event handling only
+  bridge.py        (planned, R11.2) web actions -> GameSession -> plain board description
+web/               (planned, R11) page, styles, scripts, and web worker; no game logic
 ```
 
 Allowed imports (everything may import `puzzle`):
 
 - `cli` -> `image_import`, `parser`, `solver`
 - `gui` -> `game`, `state` (never the solver, rules, hints, or deduction directly)
+- `bridge` -> `game`, `state` (same limits as `gui`); `web/` calls only `bridge`
 - `game` -> `assume`, `colors`, `hints`, `image_import`, `parser`, `solver`, `rules`, `state`
 - `hints` -> `assume`, `deduce`, `rules`, `solver`, `state`
 - `assume` -> `deduce`, `state`
