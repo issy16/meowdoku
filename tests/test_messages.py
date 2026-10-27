@@ -125,3 +125,8 @@ def test_r12_4_hints_and_steps_never_show_letters_or_english(language: str) -> N
     for text in seen:
         assert "'" not in text, text  # no region letters like region 'A'
         assert not re.search(r"[A-Za-z]{3,}", text), text  # no English left over
+
+
+def test_r12_1_chinese_comes_first_and_is_named_chinese() -> None:
+    assert list(LANGUAGES.items())[0] == ("zh-TW", "中文")
+    assert render(Message("ui.hint"), "zh-TW") == "提示"  # the tables keep their own column order

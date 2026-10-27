@@ -283,8 +283,9 @@ their game on another device. The desktop app (R8, R10) stays.
   Previous and Next, the cat check, and the solved pop-up). Show me (R8.14)
   comes in a later release. (Step by Step added to the first release at the
   owner's request.) Previous and Next show undo and redo arrows instead of
-  words, with their names for screen readers and as a tooltip. (Arrows at
-  the owner's request.)
+  words, with their names for screen readers and as a tooltip. The desktop
+  window shows the same arrows, so the apps match. (Arrows at the owner's
+  request.)
 - **R11.5** Opening a screenshot reads it on the player's device, as in R9;
   the image is never uploaded or stored. Files other than PNG or JPEG, files
   over 20 MB, and images wider or taller than 8000 pixels are refused with a
@@ -336,8 +337,9 @@ their game on another device. The desktop app (R8, R10) stays.
 Added at the owner's request: every part of the app can be read in
 English, Traditional Chinese as written in Taiwan, Japanese, or Korean.
 
-- **R12.1** The languages are English (`en`), 繁體中文 (`zh-TW`), 日本語
-  (`ja`), and 한국어 (`ko`). Every word the web app shows is in the chosen
+- **R12.1** The languages are 中文 (`zh-TW`, Traditional Chinese as
+  written in Taiwan), English (`en`), 日本語 (`ja`), and 한국어 (`ko`), listed
+  in that order. (中文 first, and named 中文, at the owner's request.) Every word the web app shows is in the chosen
   language: buttons, the loading line, messages, the solved pop-up, file
   and screenshot errors, the Timings panel, sign-in and saving messages,
   and hints (R12.4).

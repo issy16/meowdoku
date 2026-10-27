@@ -13,6 +13,7 @@ so --serve puts it under /meowdoku/ too, and path mistakes show up locally
 
 import argparse
 import functools
+import importlib
 import http.server
 import json
 import shutil
@@ -50,9 +51,10 @@ def write_zip(target: Path) -> None:
 def write_labels(target: Path) -> None:
     """The page's wording in every language, so it can show "Loading…" before Python starts."""
     sys.path.insert(0, str(PACKAGE.parent))
-    from meowdoku.messages import LANGUAGES, labels
+    import meowdoku.messages
 
-    data = {"languages": LANGUAGES, "labels": {code: labels(code) for code in LANGUAGES}}
+    messages = importlib.reload(meowdoku.messages)  # --serve picks up edits on reload
+    data = {"languages": messages.LANGUAGES, "labels": {code: messages.labels(code) for code in messages.LANGUAGES}}
     target.write_text(json.dumps(data, ensure_ascii=False, indent=1))
 
 

@@ -70,6 +70,7 @@ APPLY_COLOR = "#c77400"  # a darker shade of the Hint ring's orange
 SHOW_ME_TEXT = label("ui.show_me")  # the link after a D6 hint (R8.14)
 SHOW_ME_TAG = "show_me"
 WALK_TAG = "walkthrough"
+ICONS = {"ui.previous": "↶", "ui.next": "↷"}  # undo and redo arrows, as in the web app (R11.4)
 SETTINGS_PATH = Path.home() / ".meowdoku" / "settings.json"  # the window's language, kept between runs
 WALK_PADDING = 16
 WALK_HEADER = 24  # height of the title line
@@ -324,7 +325,7 @@ class MeowdokuApp:
         self._language.set(language)
         self._menubar.entryconfigure(0, label=self._label("ui.language"))
         for key, button in self.buttons.items():
-            button.configure(text=self._label(key))
+            button.configure(text=ICONS.get(key) or self._label(key))
         self._measure_step_button()
         self.redraw()
 

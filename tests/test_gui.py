@@ -393,3 +393,11 @@ def test_r12_6_bad_settings_mean_english(tmp_path: Path) -> None:
     assert meowdoku.gui.load_language(settings) == "en"
     settings.write_text('{"language": "fr"}')
     assert meowdoku.gui.load_language(settings) == "en"
+
+
+def test_r12_6_desktop_matches_the_web_app(root: tk.Tk) -> None:
+    """The same arrows and the same language list, 中文 first, as the web app."""
+    app = MeowdokuApp(root, GameSession.from_text("AABBB\nACCCB\nACDDB\nEEDDB\nEEEBB"))
+    assert app.undo_button.cget("text") == "↶" and app.redo_button.cget("text") == "↷"
+    names = [app.language_menu.entrycget(index, "label") for index in range(app.language_menu.index("end") + 1)]
+    assert names == ["中文", "English", "日本語", "한국어"]

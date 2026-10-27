@@ -15,15 +15,18 @@ from dataclasses import dataclass
 from typing import Union
 
 LANGUAGES: dict[str, str] = {
+    "zh-TW": "中文",
     "en": "English",
-    "zh-TW": "繁體中文",
     "ja": "日本語",
     "ko": "한국어",
 }
-"""Each language's code and its name in that language, in menu order (R12.1)."""
+"""Each language's code and its name in that language, in menu order: 中文 first (R12.1)."""
 
 DEFAULT_LANGUAGE = "en"
-_INDEX = {code: index for index, code in enumerate(LANGUAGES)}
+
+_COLUMNS = ("en", "zh-TW", "ja", "ko")
+"""The order of the languages in every table below, whatever the menu order."""
+_INDEX = {code: index for index, code in enumerate(_COLUMNS)}
 
 
 @dataclass(frozen=True)
@@ -211,7 +214,7 @@ def shades(count: int, language: str = DEFAULT_LANGUAGE) -> list[str]:
     return [lightest, *(middle_forms[index](i) for i in range(count - 2)), darkest]
 
 
-# Every message in every language: English, 繁體中文, 日本語, 한국어 (R12.5).
+# Every message in every language: English, 中文 (Traditional, Taiwan), 日本語, 한국어 (R12.5).
 # The English wording is the program's original wording; keep it unchanged.
 TEXTS: dict[str, tuple[str, str, str, str]] = {
     # D1-D5 (deduce.py)

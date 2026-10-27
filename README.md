@@ -80,7 +80,7 @@ AJ*JAAAAAA
 
 ### Languages
 
-Everything can be read in English, 繁體中文 (Taiwan), 日本語, or 한국어,
+Everything can be read in 中文 (Traditional, Taiwan), English, 日本語, or 한국어,
 hints included: pick one from the web app's menu or the desktop window's
 Language menu, or pass `--language zh-TW` (or `en`, `ja`, `ko`) to the
 `meowdoku` command. The wording lives in `src/meowdoku/messages.py`.
