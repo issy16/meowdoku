@@ -148,7 +148,16 @@ h1 { font-size: 1.6rem; margin: 0; }
   40%, 80% { transform: translateX(12%); }
 }
 
-.message { min-height: 2.6em; margin: 12px 0; line-height: 1.3; }
+/* A fixed height, so the buttons below never move while stepping; longer text scrolls inside. */
+.message {
+  --lines: 4;
+  height: calc(1.3em * var(--lines));
+  margin: 12px 0;
+  line-height: 1.3;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 559px) { .message { --lines: 5; } }  /* narrower, so sentences wrap more */
 .message.error { color: var(--problem); }
 
 .link {
