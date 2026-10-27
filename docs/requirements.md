@@ -282,7 +282,9 @@ their game on another device. The desktop app (R8, R10) stays.
   double-clicks, drag, Hint with Apply?, Step by Step, Solve, Reset,
   Previous and Next, the cat check, and the solved pop-up). Show me (R8.14)
   comes in a later release. (Step by Step added to the first release at the
-  owner's request.)
+  owner's request.) Previous and Next show undo and redo arrows instead of
+  words, with their names for screen readers and as a tooltip. (Arrows at
+  the owner's request.)
 - **R11.5** Opening a screenshot reads it on the player's device, as in R9;
   the image is never uploaded or stored. Files other than PNG or JPEG, files
   over 20 MB, and images wider or taller than 8000 pixels are refused with a

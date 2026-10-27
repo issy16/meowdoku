@@ -59,6 +59,11 @@ function browserLanguage() {
 function applyLabels() {
   document.documentElement.lang = language;
   document.querySelectorAll("[data-label]").forEach((element) => { element.textContent = t(element.dataset.label); });
+  // Icon buttons (undo and redo arrows) keep their name for screen readers and as a tooltip.
+  document.querySelectorAll("[data-name]").forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.name));
+    element.title = t(element.dataset.name);
+  });
   $("language").value = language;
   if (!ready) statusLine.textContent = loadProblem ? t("ui.load_failed", { reason: loadProblem }) : t("ui.loading");
   renderTimings();
