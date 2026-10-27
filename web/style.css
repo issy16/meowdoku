@@ -13,6 +13,7 @@
   --apply: #c77400;
   --accent: #e8873a;
   --border: #e4d8d2;
+  --surround: #eadbd3;   /* around the play area on wide screens */
 }
 
 * { box-sizing: border-box; }
@@ -24,22 +25,37 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
 }
 
+/* One centered column, about a phone's width, so the board stays neat on big screens. */
 main {
-  max-width: 600px;
+  max-width: 480px;
   margin: 0 auto;
   padding: 16px max(16px, env(safe-area-inset-right)) 32px max(16px, env(safe-area-inset-left));
+  text-align: center;
+}
+
+/* On wide screens the column sits on a darker surround, as a focused panel. */
+@media (min-width: 560px) {
+  html, body { background: var(--surround); }
+  main {
+    margin: 32px auto;
+    padding: 24px 28px 28px;
+    background: var(--page);
+    border-radius: 28px;
+    box-shadow: 0 10px 40px rgba(120, 70, 60, 0.12);
+  }
 }
 
 h1 { font-size: 1.6rem; margin: 0 0 4px; }
 
-#status { margin: 0 0 12px; min-height: 1.3em; color: var(--subtle); }
+#status { margin: 0 0 8px; min-height: 1.3em; color: var(--subtle); }
 #status.busy::after { content: " …"; }
 
 .card {
   background: var(--card);
   border-radius: 16px;
-  padding: 12px;
-  width: min(100%, 584px);
+  padding: 10px;
+  width: min(100%, 424px);
+  margin: 0 auto;
   container-type: inline-size;   /* the board sizes itself from the card, not the window */
 }
 
@@ -49,7 +65,7 @@ h1 { font-size: 1.6rem; margin: 0 0 4px; }
   /* Fixed, equal rows and columns: a tile's ✕ or cat never changes its size. */
   grid-template-columns: repeat(var(--n), minmax(0, 1fr));
   grid-template-rows: repeat(var(--n), minmax(0, 1fr));
-  gap: calc(100cqw / var(--n) * 0.08);
+  gap: calc(100cqw / var(--n) * 0.06);
   width: 100%;
   aspect-ratio: 1;
   touch-action: none;            /* dragging marks cells instead of scrolling (R11.1a) */
@@ -62,7 +78,7 @@ h1 { font-size: 1.6rem; margin: 0 0 4px; }
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 18%;
+  border-radius: 12%;
 }
 
 .tile.ring::after {
@@ -118,7 +134,7 @@ h1 { font-size: 1.6rem; margin: 0 0 4px; }
   cursor: pointer;
 }
 
-.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 button {
   font: inherit;
@@ -136,7 +152,7 @@ button {
 }
 .buttons button:disabled { opacity: 0.45; cursor: default; }
 
-.timings { margin-top: 24px; font-size: 0.9rem; }
+.timings { margin-top: 24px; font-size: 0.9rem; text-align: left; }
 .timings summary { cursor: pointer; }
 .timings table { border-collapse: collapse; margin: 8px 0 12px; }
 .timings td { padding: 2px 16px 2px 0; }
