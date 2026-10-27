@@ -6,6 +6,8 @@ const MAX_SIDE = 8000;
 const DOUBLE_TAP_MS = 350;
 const BUSY_AFTER_MS = 150;
 const LANGUAGE_KEY = "meowdoku-language";  // R11.15, R12.3
+const THEME_KEY = "meowdoku-theme";  // R13.3
+const THEMES = { auto: "ui.theme_auto", light: "ui.theme_light", night: "ui.theme_night" };  // in button order
 
 const $ = (id) => document.getElementById(id);
 const board = $("board");
@@ -21,7 +23,7 @@ let view = null;
 let tiles = [];
 
 // Buttons wait for Python, so a press is never silently dropped while it loads.
-const controls = document.querySelectorAll("main button");
+const controls = document.querySelectorAll("main button:not(#theme)");
 controls.forEach((button) => { button.disabled = true; });
 
 // ---- Languages (R12) -------------------------------------------------------
@@ -37,13 +39,38 @@ function t(key, args = {}) {
   return template.replace(/\{(\w+)\}/g, (_, name) => String(args[name] ?? ""));
 }
 
-function storedLanguage() {
-  try { return localStorage.getItem(LANGUAGE_KEY); } catch { return null; }
+function stored(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
 }
 
-function rememberLanguage(code) {
-  try { localStorage.setItem(LANGUAGE_KEY, code); } catch { /* private window: the choice lasts this visit */ }
+function remember(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* private window: the choice lasts this visit */ }
 }
+
+// ---- Night mode (R13) --------------------------------------------------------
+// Auto leaves the look to the device (CSS prefers-color-scheme); Light and
+// Night set data-theme on the page, which the styles follow.
+
+let theme = stored(THEME_KEY) in THEMES ? stored(THEME_KEY) : "auto";
+
+function applyTheme() {
+  if (theme === "auto") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  const button = $("theme");
+  button.dataset.choice = theme;
+  button.dataset.name = THEMES[theme];
+  const name = t("ui.appearance_choice", { choice: t(THEMES[theme]) });
+  button.setAttribute("aria-label", name);
+  button.title = name;
+}
+
+$("theme").onclick = () => {
+  const order = Object.keys(THEMES);
+  theme = order[(order.indexOf(theme) + 1) % order.length];
+  remember(THEME_KEY, theme);
+  applyTheme();
+};
+applyTheme();
 
 // The first of the browser's languages the app offers, or null; any Chinese is zh-TW (R12.3).
 function browserLanguage() {
@@ -64,6 +91,7 @@ function applyLabels() {
     element.setAttribute("aria-label", t(element.dataset.name));
     element.title = t(element.dataset.name);
   });
+  applyTheme();
   $("language").value = language;
   if (!ready) statusLine.textContent = loadProblem ? t("ui.load_failed", { reason: loadProblem }) : t("ui.loading");
   renderTimings();
@@ -86,13 +114,13 @@ async function loadWording() {
   const codes = Object.keys(wording.languages);
   const ordered = own ? [own, ...codes.filter((code) => code !== own)] : codes;
   $("language").replaceChildren(...ordered.map((code) => new Option(wording.languages[code], code)));
-  const stored = storedLanguage();
-  language = stored && stored in wording.languages ? stored : own || "en";
+  const saved = stored(LANGUAGE_KEY);
+  language = saved && saved in wording.languages ? saved : own || "en";
   applyLabels();
 }
 
 $("language").onchange = () => {
-  rememberLanguage($("language").value);
+  remember(LANGUAGE_KEY, $("language").value);
   chooseLanguage($("language").value);
 };
 

@@ -61,15 +61,15 @@ POPUP_RADIUS = 20
 SOLVED_TITLE = label("ui.solved_title")
 POPUP_TITLE_FONT = ("Helvetica", 22, "bold")
 POPUP_BUTTON_FONT = ("Helvetica", 14, "bold")
-POPUP_SUBTITLE_COLOR = "#b08a86"
-POPUP_BUTTON_COLOR = "#e8873a"  # warm orange, like the game's highlights
+POPUP_SUBTITLE_COLOR = "#85605c"  # dark enough for 4.5:1 contrast (R13.5)
+POPUP_BUTTON_COLOR = "#b5571a"  # warm orange, dark enough for white text (R13.5)
 POPUP_BORDER_COLOR = "#e4d8d2"  # a thin soft outline around the card
 # English labels; the window shows them in its language (R12.6).
 APPLY_TEXT = label("ui.apply")  # the link after a hint (R8.11)
 STEP_LABEL = label("ui.step")  # the button that becomes Next Step while stepping (R8.12)
 NEXT_LABEL = label("ui.next_step")
 APPLY_TAG = "apply"
-APPLY_COLOR = "#c77400"  # a darker shade of the Hint ring's orange
+APPLY_COLOR = "#9a5c00"  # a darker shade of the Hint ring's orange
 SHOW_ME_TEXT = label("ui.show_me")  # the link after a D6 hint (R8.14)
 SHOW_ME_TAG = "show_me"
 WALK_TAG = "walkthrough"
@@ -204,6 +204,39 @@ def rounded_rect_points(box: Box, radius: float) -> list[float]:
     ]  # fmt: skip
 
 
+@dataclass(frozen=True)
+class Palette:
+    """Everything around the puzzle; the tiles, marks, and rings look the same in both (R13.1)."""
+
+    page: str
+    card: str
+    text: str
+    subtle: str
+    border: str
+    accent: str  # the primary button, under white text
+    link: str  # Apply? and Show me
+
+
+LIGHT = Palette(PAGE_COLOR, CARD_COLOR, TEXT_COLOR, POPUP_SUBTITLE_COLOR, POPUP_BORDER_COLOR, POPUP_BUTTON_COLOR, APPLY_COLOR)
+NIGHT = Palette("#221c1d", "#2e2627", "#f0dcd6", "#c4aca7", "#4a3d3c", "#b5571a", "#f0a24a")  # as web/style.css
+ON_ACCENT = "#ffffff"
+THEMES = {"auto": "ui.theme_auto", "light": "ui.theme_light", "night": "ui.theme_night"}  # in menu order (R13.2)
+FOLLOW_SYSTEM_MS = 3000  # how often Auto checks whether macOS turned dark mode on or off
+
+
+def system_is_dark() -> bool:
+    """Whether the computer is in dark mode; only macOS is asked, others count as light."""
+    if sys.platform != "darwin":
+        return False
+    try:
+        result = subprocess.run(
+            ["defaults", "read", "-g", "AppleInterfaceStyle"], capture_output=True, text=True, timeout=2, check=False
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return result.stdout.strip().lower() == "dark"
+
+
 # The window
 
 
@@ -230,26 +263,43 @@ def system_languages() -> list[str]:
     return [code for code in found if code and code not in ("C", "POSIX")]
 
 
+def load_settings(path: Path | None) -> dict[str, object]:
+    """The settings file's contents, or nothing if there's no file or it can't be read."""
+    if path is None:
+        return {}
+    try:
+        settings = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return settings if isinstance(settings, dict) else {}
+
+
+def save_setting(path: Path | None, name: str, value: str) -> None:
+    """Remember one setting for next time, keeping the others; a file that can't be written is skipped."""
+    if path is None:
+        return
+    settings = load_settings(path) | {name: value}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(settings))
+    except OSError:
+        pass
+
+
 def load_language(path: Path | None, default: str = DEFAULT_LANGUAGE) -> str:
     """The language saved in the settings file, or `default` if there is none (R12.6)."""
-    if path is None:
-        return default
-    try:
-        saved = json.loads(path.read_text()).get("language")
-    except (OSError, ValueError, AttributeError):
-        return default
-    return normalize_language(saved) if saved else default
+    saved = load_settings(path).get("language")
+    return normalize_language(saved) if isinstance(saved, str) and saved else default
 
 
 def save_language(path: Path | None, language: str) -> None:
-    """Remember the window's language for next time; a settings file that can't be written is skipped."""
-    if path is None:
-        return
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"language": language}))
-    except OSError:
-        pass
+    save_setting(path, "language", language)
+
+
+def load_theme(path: Path | None) -> str:
+    """Auto, Light, or Night from the settings file; Auto if there is none (R13.4)."""
+    saved = load_settings(path).get("theme")
+    return saved if isinstance(saved, str) and saved in THEMES else "auto"
 
 
 class MeowdokuApp:
@@ -265,13 +315,16 @@ class MeowdokuApp:
         self.session = session
         self.settings = settings
         self.preferred = list(preferred)
+        self.theme = load_theme(settings)
+        self.palette = LIGHT
         self.popup = False  # whether the solved card (R8.6) is showing
         root.title("Meowdoku")
         root.resizable(False, False)
-        root.configure(background=PAGE_COLOR)
+
         root.report_callback_exception = self._report_error  # type: ignore[assignment]
 
-        toolbar = tk.Frame(root, padx=MARGIN, pady=MARGIN, background=PAGE_COLOR)
+        toolbar = tk.Frame(root, padx=MARGIN, pady=MARGIN)
+        self.toolbar = toolbar
         toolbar.pack(fill="x")
         self.buttons: dict[str, tk.Button] = {}  # by message key, so their labels follow the language
         for key, command in (
@@ -283,7 +336,7 @@ class MeowdokuApp:
             ("ui.solve", lambda: self._run(self.session.solve)),
             ("ui.reset", lambda: self._run(self.session.reset)),
         ):
-            button = tk.Button(toolbar, command=command, highlightbackground=PAGE_COLOR)
+            button = tk.Button(toolbar, command=command)
             button.pack(side="left", padx=(0, 6))
             self.buttons[key] = button
         self.step_button = self.buttons["ui.step"]
@@ -293,7 +346,7 @@ class MeowdokuApp:
         self._step_width = 0
         self.language_menu = self._build_language_menu()
 
-        self.canvas = tk.Canvas(root, highlightthickness=0, background=PAGE_COLOR)
+        self.canvas = tk.Canvas(root, highlightthickness=0)
         self.canvas.pack()
         self.canvas.bind("<ButtonPress-1>", self._on_press)
         self.canvas.bind("<Double-Button-1>", self._on_double_click)
@@ -313,15 +366,14 @@ class MeowdokuApp:
             highlightthickness=0,
             padx=MARGIN,
             pady=MARGIN,
-            background=PAGE_COLOR,
             cursor="arrow",
         )
         self.message.pack(fill="x")
-        self.message.tag_configure(APPLY_TAG, foreground=APPLY_COLOR, underline=True)
+        self.message.tag_configure(APPLY_TAG, underline=True)
         self.message.tag_bind(APPLY_TAG, "<Button-1>", lambda event: self._run(self.session.apply_hint))
         self.message.tag_bind(APPLY_TAG, "<Enter>", lambda event: self.message.configure(cursor="hand2"))
         self.message.tag_bind(APPLY_TAG, "<Leave>", lambda event: self.message.configure(cursor="arrow"))
-        self.message.tag_configure(SHOW_ME_TAG, foreground=APPLY_COLOR, underline=True)
+        self.message.tag_configure(SHOW_ME_TAG, underline=True)
         self.message.tag_bind(SHOW_ME_TAG, "<Button-1>", lambda event: self._walk(self.session.show_me))
         self.message.tag_bind(SHOW_ME_TAG, "<Enter>", lambda event: self.message.configure(cursor="hand2"))
         self.message.tag_bind(SHOW_ME_TAG, "<Leave>", lambda event: self.message.configure(cursor="arrow"))
@@ -330,8 +382,10 @@ class MeowdokuApp:
         root.bind("<Escape>", lambda event: self._on_key("Escape"))
         root.bind("<Left>", lambda event: self._on_key("Left"))
         root.bind("<Right>", lambda event: self._on_key("Right"))
+        self.set_theme(self.theme)
         default = pick_language(self.preferred) if self.preferred else self.session.language
         self.set_language(load_language(settings, default))
+        self.root.after(FOLLOW_SYSTEM_MS, self._follow_system)
 
     # Language (R12.6)
 
@@ -348,6 +402,13 @@ class MeowdokuApp:
                 label=LANGUAGES[code], value=code, variable=self._language, command=self._choose_language
             )
         menubar.add_cascade(label=label("ui.language"), menu=menu)
+        self.appearance_menu = tk.Menu(menubar, tearoff=False)
+        self._theme = tk.StringVar(value="auto")
+        for choice, key in THEMES.items():
+            self.appearance_menu.add_radiobutton(
+                label=label(key), value=choice, variable=self._theme, command=self._choose_theme
+            )
+        menubar.add_cascade(label=label("ui.appearance"), menu=self.appearance_menu)
         self.root.configure(menu=menubar)
         self._menubar = menubar
         return menu
@@ -356,11 +417,44 @@ class MeowdokuApp:
         self.set_language(self._language.get())
         save_language(self.settings, self.session.language)
 
+    # Night mode (R13)
+
+    def _choose_theme(self) -> None:
+        self.set_theme(self._theme.get())
+        save_setting(self.settings, "theme", self.theme)
+
+    def set_theme(self, theme: str) -> None:
+        """Auto, Light, or Night: color everything around the puzzle to match (R13.1, R13.2)."""
+        self.theme = theme
+        self._theme.set(theme)
+        night = theme == "night" or (theme == "auto" and system_is_dark())
+        self.palette = NIGHT if night else LIGHT
+        page = self.palette.page
+        for widget in (self.root, self.toolbar, self.canvas):
+            widget.configure(background=page)
+        for button in self.buttons.values():
+            button.configure(highlightbackground=page)
+        self.message.configure(background=page)
+        self.message.tag_configure(APPLY_TAG, foreground=self.palette.link)
+        self.message.tag_configure(SHOW_ME_TAG, foreground=self.palette.link)
+        self.redraw()
+
+    def _follow_system(self) -> None:
+        """On Auto, switch when the computer turns dark mode on or off while the window is open."""
+        if self.theme == "auto":
+            wanted = NIGHT if system_is_dark() else LIGHT
+            if wanted is not self.palette:
+                self.set_theme("auto")
+        self.root.after(FOLLOW_SYSTEM_MS, self._follow_system)
+
     def set_language(self, language: str) -> None:
         """Word the window in `language`: buttons, menu, messages, and hints. The board doesn't change."""
         self.session.set_language(language)
         self._language.set(language)
         self._menubar.entryconfigure(0, label=self._label("ui.language"))
+        self._menubar.entryconfigure(1, label=self._label("ui.appearance"))
+        for index, key in enumerate(THEMES.values()):
+            self.appearance_menu.entryconfigure(index, label=self._label(key))
         for key, button in self.buttons.items():
             button.configure(text=ICONS.get(key) or self._label(key))
         self._measure_step_button()
@@ -431,15 +525,15 @@ class MeowdokuApp:
         right, bottom = left + card_w, top + card_h
         middle = width / 2
         tags = POPUP_TAG
-        self._round_box((left - 1, top - 1, right + 1, bottom + 1), POPUP_RADIUS + 1, POPUP_BORDER_COLOR, tags)
-        self._round_box((left, top, right, bottom), POPUP_RADIUS, CARD_COLOR, tags)
+        self._round_box((left - 1, top - 1, right + 1, bottom + 1), POPUP_RADIUS + 1, self.palette.border, tags)
+        self._round_box((left, top, right, bottom), POPUP_RADIUS, self.palette.card, tags)
         title, subtitle = self._label("ui.solved_title"), self._label("ui.solved_subtitle")
-        canvas.create_text(middle, top + 44, text=title, font=POPUP_TITLE_FONT, fill=TEXT_COLOR, tags=tags)
-        canvas.create_text(middle, top + 76, text=subtitle, font=MESSAGE_FONT, fill=POPUP_SUBTITLE_COLOR, tags=tags)
+        canvas.create_text(middle, top + 44, text=title, font=POPUP_TITLE_FONT, fill=self.palette.text, tags=tags)
+        canvas.create_text(middle, top + 76, text=subtitle, font=MESSAGE_FONT, fill=self.palette.subtle, tags=tags)
         button = (middle - 56, bottom - 54, middle + 56, bottom - 22)
-        self._round_box(button, (button[3] - button[1]) / 2, POPUP_BUTTON_COLOR, tags)  # a pill
+        self._round_box(button, (button[3] - button[1]) / 2, self.palette.accent, tags)  # a pill
         canvas.create_text(
-            middle, (button[1] + button[3]) / 2, text=self._label("ui.ok"), font=POPUP_BUTTON_FONT, fill=CARD_COLOR, tags=tags
+            middle, (button[1] + button[3]) / 2, text=self._label("ui.ok"), font=POPUP_BUTTON_FONT, fill=ON_ACCENT, tags=tags
         )
         self.popup = True
 
@@ -598,7 +692,7 @@ class MeowdokuApp:
     def _show_message(self) -> None:
         """The session's message, with an "Apply?" link after a hint that can be applied (R8.11)."""
         text = self.message
-        text.configure(state="normal", foreground=TEXT_COLOR)
+        text.configure(state="normal", foreground=self.palette.text)
         text.delete("1.0", "end")
         text.insert("end", self.session.message)
         if self.session.can_show_me:
@@ -629,7 +723,7 @@ class MeowdokuApp:
 
     def _draw_card(self, board: int) -> None:
         far = BOARD_INSET + board + CARD_PADDING
-        self._rounded_rect((MARGIN, MARGIN, far, far), CARD_RADIUS, fill=CARD_COLOR)
+        self._rounded_rect((MARGIN, MARGIN, far, far), CARD_RADIUS, fill=self.palette.card)
 
     def _draw_tiles(self, grid: Grid, tags: str = "") -> None:
         """Rounded tiles. Show me's smaller ones are drawn like the pop-up cards, since
@@ -743,8 +837,8 @@ class MeowdokuApp:
         tags = WALK_TAG
         x0, y0, x1, y1 = layout.card
         left, top, right = x0, y0, x1
-        self._round_box((x0 - 1, y0 - 1, x1 + 1, y1 + 1), POPUP_RADIUS + 1, POPUP_BORDER_COLOR, tags)
-        self._round_box(layout.card, POPUP_RADIUS, CARD_COLOR, tags)
+        self._round_box((x0 - 1, y0 - 1, x1 + 1, y1 + 1), POPUP_RADIUS + 1, self.palette.border, tags)
+        self._round_box(layout.card, POPUP_RADIUS, self.palette.card, tags)
         header_y = top + WALK_PADDING + WALK_HEADER / 2
         self.canvas.create_text(
             left + WALK_PADDING,
@@ -752,12 +846,12 @@ class MeowdokuApp:
             text=self._label("ui.walk_title"),
             anchor="w",
             font=POPUP_BUTTON_FONT,
-            fill=TEXT_COLOR,
+            fill=self.palette.text,
             tags=tags,
         )
         count = self._label("ui.walk_count", number=self.session.frame_number + 1, total=len(self.session.frames))
         self.canvas.create_text(
-            right - WALK_PADDING, header_y, text=count, anchor="e", font=MESSAGE_FONT, fill=POPUP_SUBTITLE_COLOR, tags=tags
+            right - WALK_PADDING, header_y, text=count, anchor="e", font=MESSAGE_FONT, fill=self.palette.subtle, tags=tags
         )
         grid = layout.grid
         self._draw_highlights(grid, frame.ring, frame.style, tags)
@@ -771,7 +865,7 @@ class MeowdokuApp:
             anchor="nw",
             width=wrap,
             font=MESSAGE_FONT,
-            fill=TEXT_COLOR,
+            fill=self.palette.text,
             tags=(tags, WALK_CAPTION_TAG),
         )
         last = self.session.frame_number + 1 == len(self.session.frames)
@@ -786,13 +880,13 @@ class MeowdokuApp:
             box = layout.buttons[name]
             self._walk_buttons[name] = box
             primary = name == "next"
-            self._round_box(box, (box[3] - box[1]) / 2, POPUP_BUTTON_COLOR if primary else POPUP_BORDER_COLOR, tags)
+            self._round_box(box, (box[3] - box[1]) / 2, self.palette.accent if primary else self.palette.border, tags)
             self.canvas.create_text(
                 (box[0] + box[2]) / 2,
                 (box[1] + box[3]) / 2,
                 text=label,
                 font=POPUP_BUTTON_FONT,
-                fill=CARD_COLOR if primary else TEXT_COLOR,
+                fill=ON_ACCENT if primary else self.palette.text,
                 tags=tags,
             )
 

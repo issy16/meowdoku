@@ -490,6 +490,11 @@ TEXTS: dict[str, tuple[str, str, str, str]] = {
         "대신 예제 퍼즐을 표시합니다.",
     ),
     "ui.language": ("Language", "語言", "言語", "언어"),
+    "ui.appearance": ("Appearance", "外觀", "表示モード", "화면 모드"),
+    "ui.appearance_choice": ("Appearance: {choice}", "外觀：{choice}", "表示モード：{choice}", "화면 모드: {choice}"),
+    "ui.theme_auto": ("Auto", "自動", "自動", "자동"),
+    "ui.theme_light": ("Light", "淺色", "ライト", "라이트"),
+    "ui.theme_night": ("Night", "夜間", "ナイト", "야간"),
     "ui.loading": ("Loading…", "載入中…", "読み込み中…", "불러오는 중…"),
     "ui.load_failed": (
         "Couldn't load the game: {reason}",

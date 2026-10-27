@@ -1,19 +1,57 @@
 /* The look of the desktop window (R8.2): rounded tiles with white gaps on a
-   white card, on a beige page. Colors match gui.py. */
+   white card, on a beige page. Colors match gui.py's LIGHT and NIGHT palettes.
+   Night mode (R13) changes only what surrounds the puzzle: the region tiles,
+   ✕ marks, cats, and rings look the same in both. */
 :root {
+  color-scheme: light;
   --page: #f7f2ef;
   --card: #ffffff;
   --text: #935a5a;
-  --subtle: #b08a86;
+  --subtle: #85605c;
+  --apply: #9a5c00;
+  --accent: #b5571a;     /* the solved card's OK button, with white text */
+  --border: #e4d8d2;
+  --surround: #eadbd3;   /* around the play area on wide screens */
+  --error: #b3261e;
+  --shadow: rgba(120, 70, 60, 0.12);
+  --backdrop: rgba(0, 0, 0, 0.12);
   --cross: #ffffff;
   --cat-ink: #262626;
   --revealed-ink: #9a9a9a;
   --hint: #f5a700;
   --problem: #d62828;
-  --apply: #c77400;
-  --accent: #e8873a;
-  --border: #e4d8d2;
-  --surround: #eadbd3;   /* around the play area on wide screens */
+}
+
+/* Night (R13.1). The same values twice: chosen outright, or by Auto when the device is dark (R13.2). */
+:root[data-theme="night"] {
+  color-scheme: dark;
+  --page: #221c1d;
+  --card: #2e2627;
+  --text: #f0dcd6;
+  --subtle: #c4aca7;
+  --apply: #f0a24a;
+  --accent: #b5571a;
+  --border: #4a3d3c;
+  --surround: #171213;
+  --error: #ff8a80;
+  --shadow: rgba(0, 0, 0, 0.5);
+  --backdrop: rgba(0, 0, 0, 0.45);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --page: #221c1d;
+    --card: #2e2627;
+    --text: #f0dcd6;
+    --subtle: #c4aca7;
+    --apply: #f0a24a;
+    --accent: #b5571a;
+    --border: #4a3d3c;
+    --surround: #171213;
+    --error: #ff8a80;
+    --shadow: rgba(0, 0, 0, 0.5);
+    --backdrop: rgba(0, 0, 0, 0.45);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -41,7 +79,7 @@ main {
     padding: 24px 28px 28px;
     background: var(--page);
     border-radius: 28px;
-    box-shadow: 0 10px 40px rgba(120, 70, 60, 0.12);
+    box-shadow: 0 10px 40px var(--shadow);
   }
 }
 
@@ -55,6 +93,35 @@ header {
 }
 
 h1 { font-size: 1.6rem; margin: 0; }
+
+.settings { display: flex; align-items: center; gap: 6px; }
+
+/* Auto, Light, or Night (R13.3); the icon shows which */
+#theme {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+#theme svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#theme svg { display: none; }
+#theme[data-choice="auto"] .auto,
+#theme[data-choice="light"] .light,
+#theme[data-choice="night"] .night { display: block; }
 .language select {
   font: inherit;
   font-size: 0.85rem;
@@ -158,7 +225,7 @@ h1 { font-size: 1.6rem; margin: 0; }
   overscroll-behavior: contain;
 }
 @media (max-width: 559px) { .message { --lines: 5; } }  /* narrower, so sentences wrap more */
-.message.error { color: var(--problem); }
+.message.error { color: var(--error); }
 
 .link {
   border: none;
@@ -221,7 +288,7 @@ button {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--backdrop);
 }
 .popup[hidden] { display: none; }
 
@@ -229,7 +296,7 @@ button {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 20px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 12px 32px var(--shadow);
   padding: 24px 40px;
   text-align: center;
 }

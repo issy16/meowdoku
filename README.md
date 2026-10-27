@@ -85,6 +85,12 @@ hints included: pick one from the web app's menu or the desktop window's
 Language menu, or pass `--language zh-TW` (or `en`, `ja`, `ko`) to the
 `meowdoku` command. The wording lives in `src/meowdoku/messages.py`.
 
+### Night mode
+
+The web app's moon button (next to the language menu) and the desktop
+window's Appearance menu switch between Auto, Light, and Night. Auto follows
+the device's own dark mode. The puzzle's colors stay the same in both looks.
+
 ### Web app (prototype)
 
 The same game runs in a browser, on computers and phones, at
