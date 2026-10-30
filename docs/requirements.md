@@ -303,7 +303,8 @@ their game on another device. The desktop app (R8, R10) stays.
   scope.)
 - **R11.7** For a signed-in player, the current game is saved after each
   move, and after signing in on any supported browser it is restored. Each
-  account has one saved game; opening a new screenshot replaces it.
+  account has one saved game; opening a new screenshot replaces it. When
+  both the account and the device have a game, the one saved last is kept.
 - **R11.7a** The current game saves itself on the device after every move,
   with no Save button, and comes back when the page is opened again on that
   browser, even after the browser was closed. It is kept as `meowdoku-game`

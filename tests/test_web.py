@@ -1,5 +1,6 @@
 """The web app's files: what gets published, and paths that work under /meowdoku/ (R11.13, R11.14)."""
 
+import base64
 import importlib.util
 import json
 import re
@@ -61,7 +62,8 @@ def test_r11_1_pyodide_is_pinned() -> None:
 def test_r11_13_assemble_writes_the_site(tmp_path: Path) -> None:
     out = assemble.assemble(tmp_path / "site")
     assert sorted(path.name for path in out.iterdir()) == [
-        "app.js", "index.html", "labels.json", "meowdoku.zip", "sample.png", "style.css", "worker.js",
+        "account.js", "account.json", "app.js", "index.html", "labels.json", "meowdoku.zip", "sample.png",
+        "style.css", "worker.js",
     ]
     with zipfile.ZipFile(out / "meowdoku.zip") as archive:
         names = archive.namelist()
@@ -96,7 +98,7 @@ def test_r12_1_labels_json_has_every_language(tmp_path: Path) -> None:
 
 def test_r12_1_page_uses_only_known_labels() -> None:
     """Every label the page asks for exists, so nothing shows up as a bare key."""
-    page = (WEB / "app.js").read_text() + (WEB / "index.html").read_text() + (WEB / "worker.js").read_text()
+    page = "".join((WEB / name).read_text() for name in ("app.js", "index.html", "worker.js", "account.js"))
     used = set(re.findall(r"\b((?:ui|timing)\.[a-z_]+)\b", page))
     assert used
     assert used <= set(labels("en"))
@@ -114,8 +116,9 @@ def test_r12_1_every_button_is_worded_before_python_loads() -> None:
 def test_r11_7a_each_release_asks_for_its_own_files(tmp_path: Path) -> None:
     """A browser's cached old app.js can't run with a new page: every reference carries the release's version."""
     out = assemble.assemble(tmp_path / "site")
-    page = (out / "index.html").read_text() + (out / "app.js").read_text() + (out / "worker.js").read_text()
-    versions = set(re.findall(r'"(?:style\.css|app\.js|worker\.js|labels\.json|meowdoku\.zip)\?v=(\w+)"', page))
+    page = "".join((out / name).read_text() for name in assemble.REFERRERS)
+    names = "|".join(re.escape(name) for name in assemble.STAMPED)
+    versions = set(re.findall(rf'"(?:{names})\?v=(\w+)"', page))
     assert len(versions) == 1
     for name in assemble.STAMPED:
         assert f'"{name}"' not in page  # nothing left unstamped
@@ -131,3 +134,53 @@ def test_r11_7a_the_version_changes_with_the_files(tmp_path: Path) -> None:
         if name != "app.js":
             (second / name).write_text((assemble.WEB / name).read_text())
     assert assemble.stamp(second) != re.search(r"\?v=(\w+)", (first / "index.html").read_text()).group(1)
+
+
+def test_nfr6_supabase_client_is_pinned() -> None:
+    """One exact supabase-js release, from jsDelivr, loaded only by account.js."""
+    script = (WEB / "account.js").read_text()
+    assert re.findall(r"https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js@[^/\"]+", script) == [
+        "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"
+    ]
+    for name in ("app.js", "worker.js", "index.html"):
+        assert "supabase" not in (WEB / name).read_text().lower(), name
+
+
+def test_r11_15_sign_in_is_stored_under_the_meowdoku_prefix() -> None:
+    script = (WEB / "account.js").read_text()
+    assert 'const AUTH_KEY = "meowdoku-auth";' in script
+    assert "storageKey: AUTH_KEY" in script
+
+
+def test_r11_9_the_repository_holds_only_a_public_key() -> None:
+    config = json.loads((WEB / "account.json").read_text())
+    assert set(config) == {"url", "key"}
+    assert config["url"] == "" or re.fullmatch(r"https://[a-z0-9]+\.supabase\.co", config["url"])
+    key = config["key"]
+    if key.count(".") == 2:  # an older Supabase key: a token naming its role
+        payload = key.split(".")[1]
+        assert json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))["role"] == "anon"
+    else:
+        assert key == "" or key.startswith("sb_publishable_")
+    for path in [*WEB.iterdir(), ROOT / "supabase" / "schema.sql"]:
+        if path.is_file() and path.suffix in {".js", ".json", ".html", ".sql"}:
+            assert "sb_secret_" not in path.read_text(), path.name
+
+
+def test_r11_9_every_save_rule_checks_the_signed_in_player() -> None:
+    schema = (ROOT / "supabase" / "schema.sql").read_text()
+    assert "alter table public.saves enable row level security;" in schema
+    policies = re.findall(r"create policy .*?;", schema, re.S)
+    assert len(policies) == 4  # read, add, change, delete
+    for policy in policies:
+        assert "to authenticated" in policy and "user_id = (select auth.uid())" in policy, policy
+    # R11.11: deleting an account deletes only the signed-in player, and guests can't call it.
+    assert "delete from auth.users where id = (select auth.uid());" in schema
+    assert "revoke all on function public.delete_account() from public, anon;" in schema
+
+
+def test_r11_6_account_bar_starts_hidden() -> None:
+    """Guests see no sign-in until account.js has reached a configured project."""
+    page = (WEB / "index.html").read_text()
+    assert '<section id="account" class="account" hidden>' in page
+    assert page.index('src="account.js"') < page.index('src="app.js"')

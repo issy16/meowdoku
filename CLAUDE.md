@@ -38,7 +38,8 @@ without the owner's approval**, and work one approved milestone at a time.
   game (`meowdoku-game`), language, and theme.
 - No secret or privileged keys in `web/` or anywhere in the repository; the
   sign-in service enforces who can read each save (R11.9).
-- Guest play always works; sign-in is optional (R11.6). Phones are
+- Guest play always works; sign-in is optional (R11.6). Setup steps for the
+  owner are in docs/supabase-setup.md. Phones are
   supported (R11.1a).
 
 ## Commands
@@ -85,8 +86,11 @@ src/meowdoku/
 web/
   index.html, style.css, app.js   the page: draws the board, sends taps and buttons; no game logic
   worker.js        web worker: loads Pyodide, Pillow, and meowdoku.zip, answers through bridge.py
+  account.js       optional sign-in (Supabase) and the game kept in the player's account (R11.6–R11.11)
+  account.json     the Supabase project's URL and publishable key; empty means guests only
   timings.py       prototype measurements for R11.12 (shipped in meowdoku.zip)
   assemble.py      builds the site (page files, meowdoku.zip, sample.png); --serve under /meowdoku/
+supabase/schema.sql          the saves table, its row-level security (R11.9), delete_account (R11.11)
 .github/workflows/pages.yml   tests, assembles, and publishes the site to GitHub Pages
 ```
 

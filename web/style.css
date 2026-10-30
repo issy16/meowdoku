@@ -311,3 +311,25 @@ button {
   padding: 8px 32px;
   cursor: pointer;
 }
+
+/* Signing in (R11.6): a quiet bar below the game's buttons. */
+.account { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+.account[hidden], .account [hidden] { display: none; }
+.signed-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; }
+#who { color: var(--subtle); overflow-wrap: anywhere; }
+.email-form { display: flex; gap: 8px; width: 100%; justify-content: center; }
+.email-form input {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 280px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  font-size: 16px;  /* 16px or more, so iPhones don't zoom in on the field */
+}
+.buttons button.link { border: none; background: none; color: var(--subtle); min-height: 0; }
+.account-message { margin: 8px 0 0; min-height: 1.3em; color: var(--subtle); }
+.account-message.error { color: var(--error); }

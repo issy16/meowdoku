@@ -28,7 +28,7 @@ ROOT = WEB.parent
 PACKAGE = ROOT / "src" / "meowdoku"
 SAMPLE = ROOT / "tests" / "fixtures" / "screenshots" / "IMG_7117.PNG"
 
-PAGE_FILES = ("index.html", "style.css", "app.js", "worker.js")
+PAGE_FILES = ("index.html", "style.css", "app.js", "worker.js", "account.js", "account.json")
 SKIPPED_MODULES = {"gui.py", "cli.py", "__main__.py"}  # desktop and command line only
 SUBPATH = "meowdoku"
 
@@ -63,9 +63,9 @@ def write_labels(target: Path, fresh: bool = False) -> None:
     target.write_text(json.dumps(data, ensure_ascii=False, indent=1))
 
 
-STAMPED = ("style.css", "app.js", "worker.js", "labels.json", "meowdoku.zip")
+STAMPED = ("style.css", "app.js", "worker.js", "account.js", "account.json", "labels.json", "meowdoku.zip")
 """Files the page loads by name; each release asks for them as name?v=<version>."""
-REFERRERS = ("index.html", "app.js", "worker.js")
+REFERRERS = ("index.html", "app.js", "worker.js", "account.js")
 
 
 def stamp(out: Path) -> str:

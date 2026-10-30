@@ -90,6 +90,7 @@ function browserLanguage() {
 function applyLabels() {
   document.documentElement.lang = language;
   document.querySelectorAll("[data-label]").forEach((element) => { element.textContent = t(element.dataset.label); });
+  document.querySelectorAll("[data-placeholder]").forEach((element) => { element.placeholder = t(element.dataset.placeholder); });
   // Icon buttons (undo and redo arrows) keep their name for screen readers and as a tooltip.
   document.querySelectorAll("[data-name]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.name));
@@ -99,6 +100,7 @@ function applyLabels() {
   $("language").value = language;
   if (!ready) statusLine.textContent = loadProblem ? t("ui.load_failed", { reason: loadProblem }) : t("ui.loading");
   renderTimings();
+  account.render();
   if (view) show(view);
 }
 
@@ -197,6 +199,12 @@ async function restoreGame() {
   }
   saving = true;
   keepGame();
+  // Then the player's account, if they're signed in (R11.7).
+  account.start({
+    t,
+    deviceSave: () => { try { return JSON.parse(stored(GAME_KEY)); } catch { return null; } },
+    restore: (save) => act("restore", save),
+  });
 }
 
 function keepGame() {
@@ -204,7 +212,9 @@ function keepGame() {
   const save = JSON.stringify(view.save);
   if (save === lastSave) return;
   try {
-    localStorage.setItem(GAME_KEY, JSON.stringify({ ...view.save, saved: new Date().toISOString() }));
+    const stamped = { ...view.save, saved: new Date().toISOString() };
+    account.keep(stamped);  // to the account too, when signed in (R11.7)
+    localStorage.setItem(GAME_KEY, JSON.stringify(stamped));
     lastSave = save;
     if (saveFailed) { saveFailed = false; statusLine.textContent = ""; }
   } catch {

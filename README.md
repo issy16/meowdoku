@@ -190,4 +190,5 @@ docs/              requirements and algorithm design
 7. Colored-board GUI (tkinter) ✅
 8. Screenshot import (Pillow) ✅ (tuned on three real screenshots)
 9. Web app prototype (Pyodide) at <https://issy16.github.io/meowdoku/> 🚧
-   (no sign-in or saving yet; see R11)
+   (saves on the device; sign-in with Google or email once a Supabase
+   project is set up, see docs/supabase-setup.md)
