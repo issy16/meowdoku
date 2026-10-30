@@ -292,8 +292,15 @@ their game on another device. The desktop app (R8, R10) stays.
   message.
 - **R11.6** Anyone can play without signing in, and every player's game is
   saved on their device (R11.7a). Signing in, through the managed sign-in
-  service the owner chooses, also saves it to their account. The page shows
-  who is signed in and has a Sign out button.
+  service the owner chooses (Supabase, NFR6), also saves it to their
+  account. Players sign in with a Google account or with a sign-in link sent
+  to their email. Sign in with Apple comes later, once the owner has a paid
+  Apple developer account (R10.3). The page shows who is signed in and has
+  a Sign out button. (Supabase, Google, and email links chosen by the owner.)
+- **R11.6a** Saves are kept in the service's database, in a table with one
+  row per account (R11.7), so that more tables, such as scores, can be added
+  later without changing it. (Scores are kept as a future option; see Out of
+  scope.)
 - **R11.7** For a signed-in player, the current game is saved after each
   move, and after signing in on any supported browser it is restored. Each
   account has one saved game; opening a new screenshot replaces it.
@@ -425,8 +432,12 @@ app and the desktop window alike.
   Each is named here when chosen. Chosen so far: Pyodide 314.0.7 (Python
   3.14, Pillow 12.2) from jsDelivr, loaded in a module worker; GitHub's
   `checkout`, `setup-python`, `configure-pages`, `upload-pages-artifact`,
-  and `deploy-pages` actions in `.github/workflows/pages.yml`. The sign-in
-  service and the browser test tool are still to be chosen.
+  and `deploy-pages` actions in `.github/workflows/pages.yml`; Supabase as
+  the sign-in service and database, with its browser client (`supabase-js`,
+  version pinned when added) from jsDelivr. Its row-level security enforces
+  R11.9, and the page holds only the project's public key. Deleting an
+  account (R11.11) uses a database function that deletes only the signed-in
+  player. The browser test tool is still to be chosen.
 
 ## Out of scope (for now)
 
@@ -436,6 +447,8 @@ app and the desktop window alike.
   notarized Mac apps (phones use the web app, R11)
 - Several saved games per account, sharing puzzles, leaderboards, and
   checking completions on a server (the web app trusts the browser)
+- Scores for signed-in players, such as puzzles solved without Hint, Step
+  by Step, or Solve (kept as an option by the owner; details to come)
 - Puzzle generation
 - Pre-placed cats or marked cells in the input
 - Text puzzle files, or any input other than PNG/JPEG screenshots (text
