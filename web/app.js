@@ -197,6 +197,10 @@ async function restoreGame() {
     try { data = JSON.parse(kept); } catch { data = "damaged"; }
     await act("restore", data);  // a bad save shows a message and leaves a fresh game
   }
+  // The game as it stands isn't a new move, so it keeps its old save time, and a
+  // device never played on has no save: after signing in, the account's game wins (R11.7).
+  // Only a bad save is written over at once.
+  if (view && !view.error) lastSave = JSON.stringify(view.save);
   saving = true;
   keepGame();
   // Then the player's account, if they're signed in (R11.7).
