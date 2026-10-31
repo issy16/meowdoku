@@ -13,6 +13,12 @@ create table if not exists public.saves (
 
 alter table public.saves enable row level security;
 
+-- Only signed-in players reach the table at all; the rules below then limit
+-- each one to their own row. (Newer projects don't grant new tables to the
+-- app by default, so this says it outright.)
+revoke all on public.saves from anon;
+grant select, insert, update, delete on public.saves to authenticated;
+
 drop policy if exists "read own save" on public.saves;
 create policy "read own save" on public.saves
   for select to authenticated using (user_id = (select auth.uid()));

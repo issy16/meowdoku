@@ -170,6 +170,8 @@ def test_r11_9_the_repository_holds_only_a_public_key() -> None:
 def test_r11_9_every_save_rule_checks_the_signed_in_player() -> None:
     schema = (ROOT / "supabase" / "schema.sql").read_text()
     assert "alter table public.saves enable row level security;" in schema
+    assert "revoke all on public.saves from anon;" in schema  # guests never reach saves
+    assert "grant select, insert, update, delete on public.saves to authenticated;" in schema
     policies = re.findall(r"create policy .*?;", schema, re.S)
     assert len(policies) == 4  # read, add, change, delete
     for policy in policies:
