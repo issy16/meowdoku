@@ -101,6 +101,7 @@ function applyLabels() {
   if (!ready) statusLine.textContent = loadProblem ? t("ui.load_failed", { reason: loadProblem }) : t("ui.loading");
   renderTimings();
   account.render();
+  boards.render();
   if (view) show(view);
 }
 
@@ -446,4 +447,13 @@ function closePopup() { $("popup").hidden = true; }
 $("popup").addEventListener("click", closePopup);
 document.addEventListener("keydown", (event) => {
   if (!$("popup").hidden && (event.key === "Enter" || event.key === "Escape")) closePopup();
+});
+
+// ---- Boards kept on this device (R11.16) ------------------------------------
+
+boards.start({
+  t,
+  language: () => language,
+  board: () => view && view.board,
+  open: (board) => act("open_board", board),
 });

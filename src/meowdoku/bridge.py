@@ -16,7 +16,7 @@ from typing import Any
 from meowdoku.game import EXAMPLE_PUZZLE, GameSession, cells_between, error_text
 from meowdoku.messages import pick_language
 from meowdoku.puzzle import Cell, MeowdokuError
-from meowdoku.saves import from_save, to_save
+from meowdoku.saves import from_board, from_save, to_board, to_save
 
 View = dict[str, Any]
 
@@ -38,6 +38,7 @@ class Bridge:
             "open": self.open,
             "language": self.language,
             "restore": self.restore,
+            "open_board": self.open_board,
             "press": self.press,
             "move": self.move,
             "release": self.release,
@@ -82,6 +83,11 @@ class Bridge:
     def restore(self, data: object) -> None:
         """Pick up the game saved on this device (R11.7a); a bad save leaves a fresh game and an error."""
         self.session = from_save(data, self.session.language)
+        self._pressed = self._dragged_to = None
+
+    def open_board(self, data: object) -> None:
+        """Play a kept board again, fresh (R11.16); a bad board leaves the game as it was, with an error."""
+        self.session = from_board(data, self.session.language)
         self._pressed = self._dragged_to = None
 
     def language(self, *preferred: str) -> None:
@@ -144,4 +150,5 @@ class Bridge:
             "error": error,
             "language": session.language,
             "save": to_save(session),
+            "board": to_board(session),
         }

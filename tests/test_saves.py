@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from meowdoku.game import GameSession
-from meowdoku.saves import SAVE_VERSION, SaveError, from_save, to_save
+from meowdoku.saves import SAVE_VERSION, SaveError, from_board, from_save, to_board, to_save
 from meowdoku.state import BoardState
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -82,3 +82,36 @@ def test_r12_1_a_bad_save_is_reported_in_the_players_language() -> None:
         from_save(broken(version=99))
     assert error.value.text("zh-TW") == "無法開啟你儲存的遊戲，所以開始了新的一局。"
     assert "version" in error.value.reason
+
+
+def test_r11_16_a_kept_board_is_the_puzzle_without_marks() -> None:
+    session = played()
+    board = to_board(session)
+    assert board == {"version": SAVE_VERSION, "grid": EXAMPLE, "colors": dict(session.colors)}
+    again = from_board(board, "ko")
+    assert again.puzzle == session.puzzle and again.colors == session.colors
+    assert again.state.cats == again.state.crosses == frozenset()
+    assert again.language == "ko"
+
+
+def test_r11_16_marks_in_a_board_are_ignored() -> None:
+    """A board opens fresh even if it somehow carries marks."""
+    board = {**to_board(played()), "cats": [[0, 4]], "crosses": [[1, 1]]}
+    assert from_board(board).state.cats == frozenset()
+
+
+@pytest.mark.parametrize("board", [None, "AABBB", {"version": 99}, {"version": SAVE_VERSION, "grid": "AB\nBA"}])
+def test_r11_16_a_bad_board_is_refused_in_words_for_boards(board: object) -> None:
+    with pytest.raises(SaveError) as caught:
+        from_board(board)
+    assert str(caught.value) == "That saved board couldn't be opened."
+
+
+def test_r11_9a_the_largest_save_is_far_under_8_kb() -> None:
+    """Every cell of a 12x12 board marked, as Postgres prints JSON: the 8 KB cap never refuses a real save."""
+    labels = "ABCDEFGHIJKL"
+    session = GameSession.from_text("\n".join(label * 12 for label in labels))
+    cells = [(row, col) for row in range(12) for col in range(12)]
+    session.state = BoardState(12, frozenset(cells[::2]), frozenset(cells[1::2]))
+    save = {**to_save(session), "saved": "2026-11-01T12:34:56.789Z"}
+    assert len(json.dumps(save, ensure_ascii=False).encode()) < 8192 // 3

@@ -46,6 +46,16 @@
     </div>
     <input id="file" type="file" accept="image/png,image/jpeg" hidden>
 
+    <!-- Boards kept on this device to play again (R11.16). -->
+    <section class="boards">
+      <div class="buttons">
+        <button id="save-board" type="button" data-label="ui.save_board">Save board</button>
+        <button id="show-boards" type="button" aria-expanded="false" aria-controls="board-list" data-label="ui.saved_boards">Saved boards</button>
+      </div>
+      <ul id="board-list" class="board-list" hidden></ul>
+      <p id="boards-message" class="boards-message" role="status"></p>
+    </section>
+
     <!-- Signing in is optional, and shown only once account.json names a project (R11.6). -->
     <section id="account" class="account" hidden>
       <div id="signed-out" class="buttons">
@@ -113,6 +123,7 @@
   </svg>
 
   <script src="account.js"></script>
+  <script src="boards.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

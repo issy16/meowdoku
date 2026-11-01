@@ -11,6 +11,10 @@ create table if not exists public.saves (
   saved_at timestamptz not null default now()
 );
 
+-- No save may be larger than 8 KB as text; a full 12x12 save is under 2 KB (R11.9a).
+alter table public.saves drop constraint if exists save_size;
+alter table public.saves add constraint save_size check (octet_length(save::text) <= 8192);
+
 alter table public.saves enable row level security;
 
 -- Only signed-in players reach the table at all; the rules below then limit

@@ -35,7 +35,8 @@ without the owner's approval**, and work one approved milestone at a time.
   with `/`; nothing goes in the URL; test under a `/meowdoku/` folder
   (R11.14).
 - Everything stored in the browser uses a `meowdoku` prefix (R11.15): the
-  game (`meowdoku-game`), language, and theme.
+  game (`meowdoku-game`), kept boards (`meowdoku-boards`),
+  language, and theme.
 - No secret or privileged keys in `web/` or anywhere in the repository; the
   sign-in service enforces who can read each save (R11.9).
 - Guest play always works; sign-in is optional (R11.6). Setup steps for the
@@ -81,13 +82,14 @@ src/meowdoku/
   cli.py           thin command-line wrapper
   game.py          GameSession: GUI behavior (clicks, buttons, colors), no display needed
   gui.py           thin tkinter wrapper: drawing and event handling only
-  saves.py         saved games: GameSession <-> plain data, checked on load (R11.7a, R11.8)
+  saves.py         saved games and kept boards: GameSession <-> plain data, checked on load (R11.7a, R11.8, R11.16)
   bridge.py        web actions (JSON) -> GameSession -> plain board description (R11.2)
 web/
   index.html, style.css, app.js   the page: draws the board, sends taps and buttons; no game logic
   worker.js        web worker: loads Pyodide, Pillow, and meowdoku.zip, answers through bridge.py
   account.js       optional sign-in (Supabase) and the game kept in the player's account (R11.6–R11.11)
   account.json     the Supabase project's URL and publishable key; empty means guests only
+  boards.js        boards kept on the device to play again (R11.16); never sent to the account
   timings.py       prototype measurements for R11.12 (shipped in meowdoku.zip)
   assemble.py      builds the site (page files, meowdoku.zip, sample.png); --serve under /meowdoku/
 supabase/schema.sql          the saves table, its row-level security (R11.9), delete_account (R11.11)

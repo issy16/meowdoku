@@ -435,6 +435,38 @@ TEXTS: dict[str, tuple[str, str, str, str]] = {
         "保存したゲームを開けなかったので、新しいゲームを始めました。",
         "저장된 게임을 열 수 없어서 새 게임을 시작했습니다.",
     ),
+    "err.board_unreadable": (
+        "That saved board couldn't be opened.",
+        "無法開啟這個儲存的題目。",
+        "この保存した盤面を開けませんでした。",
+        "저장한 보드를 열 수 없습니다.",
+    ),
+    # Boards kept on the device to play again, web only (R11.16)
+    "ui.save_board": ("Save board", "儲存題目", "盤面を保存", "보드 저장"),
+    "ui.saved_boards": ("Saved boards ({count})", "已儲存的題目（{count}）", "保存した盤面（{count}）", "저장한 보드 ({count})"),
+    "ui.board_saved": ("Board saved.", "已儲存題目。", "盤面を保存しました。", "보드를 저장했습니다."),
+    "ui.boards_full": (
+        "You have {max} saved boards. Delete one to save another.",
+        "你已儲存 {max} 個題目。請先刪除一個再儲存。",
+        "保存した盤面が {max} 個あります。新しく保存するには、どれかを削除してください。",
+        "저장한 보드가 {max}개입니다. 하나를 삭제한 뒤 저장하세요.",
+    ),
+    "ui.board_save_failed": (
+        "Couldn't save the board on this device.",
+        "無法在這台裝置上儲存題目。",
+        "このデバイスに盤面を保存できませんでした。",
+        "이 기기에 보드를 저장하지 못했습니다.",
+    ),
+    "ui.no_boards": ("No saved boards yet.", "還沒有儲存的題目。", "保存した盤面はまだありません。", "저장한 보드가 아직 없습니다."),
+    "ui.rename": ("Rename", "重新命名", "名前を変更", "이름 바꾸기"),
+    "ui.rename_prompt": ("New name for this board:", "這個題目的新名稱：", "この盤面の新しい名前：", "이 보드의 새 이름:"),
+    "ui.delete": ("Delete", "刪除", "削除", "삭제"),
+    "ui.delete_board_confirm": (
+        "Delete “{name}”?",
+        "要刪除「{name}」嗎？",
+        "「{name}」を削除しますか？",
+        "‘{name}’ 보드를 삭제할까요?",
+    ),
     "ui.save_failed": (
         "Couldn't save your game on this device.",
         "無法在這台裝置上儲存你的遊戲。",

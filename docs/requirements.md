@@ -320,7 +320,7 @@ their game on another device. The desktop app (R8, R10) stays.
 - **R11.9a** The service also limits how much anyone can store, so the
   project stays on Supabase's free plan, which never bills: each account
   has at most one save (R11.7), and the database refuses a save larger
-  than 8 KB (a full 12×12 save is about 3 KB). Supabase's own limits on
+  than 8 KB (a full 12×12 save is under 2 KB). Supabase's own limits on
   sign-ups and emails per address stay on. (Added at the owner's request.)
 - **R11.10** If saving fails, the page says so and keeps the game; it never
   says a game was saved when it wasn't.

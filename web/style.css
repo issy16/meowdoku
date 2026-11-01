@@ -333,3 +333,31 @@ button {
 .buttons button.link { border: none; background: none; color: var(--subtle); min-height: 0; }
 .account-message { margin: 8px 0 0; min-height: 1.3em; color: var(--subtle); }
 .account-message.error { color: var(--error); }
+
+/* Boards kept on this device (R11.16): two buttons, and the list below them when shown. */
+.boards { margin-top: 16px; }
+.board-list { list-style: none; margin: 12px auto 0; padding: 0; max-width: 420px; text-align: left; }
+.board-list[hidden] { display: none; }
+.board-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.board-list li.empty { color: var(--subtle); justify-content: center; }
+.board-list .board-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--text);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.board-list .link { color: var(--subtle); flex: none; min-height: 36px; }
+.boards-message { margin: 8px 0 0; min-height: 1.3em; color: var(--subtle); }
+.boards-message.error { color: var(--error); }

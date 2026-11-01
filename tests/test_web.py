@@ -62,7 +62,7 @@ def test_r11_1_pyodide_is_pinned() -> None:
 def test_r11_13_assemble_writes_the_site(tmp_path: Path) -> None:
     out = assemble.assemble(tmp_path / "site")
     assert sorted(path.name for path in out.iterdir()) == [
-        "account.js", "account.json", "app.js", "index.html", "labels.json", "meowdoku.zip", "sample.png",
+        "account.js", "account.json", "app.js", "boards.js", "index.html", "labels.json", "meowdoku.zip", "sample.png",
         "style.css", "worker.js",
     ]
     with zipfile.ZipFile(out / "meowdoku.zip") as archive:
@@ -98,7 +98,7 @@ def test_r12_1_labels_json_has_every_language(tmp_path: Path) -> None:
 
 def test_r12_1_page_uses_only_known_labels() -> None:
     """Every label the page asks for exists, so nothing shows up as a bare key."""
-    page = "".join((WEB / name).read_text() for name in ("app.js", "index.html", "worker.js", "account.js"))
+    page = "".join((WEB / name).read_text() for name in ("app.js", "index.html", "worker.js", "account.js", "boards.js"))
     used = set(re.findall(r"\b((?:ui|timing)\.[a-z_]+)\b", page))
     assert used
     assert used <= set(labels("en"))
@@ -171,6 +171,7 @@ def test_r11_9_every_save_rule_checks_the_signed_in_player() -> None:
     schema = (ROOT / "supabase" / "schema.sql").read_text()
     assert "alter table public.saves enable row level security;" in schema
     assert "revoke all on public.saves from anon;" in schema  # guests never reach saves
+    assert "check (octet_length(save::text) <= 8192)" in schema  # R11.9a
     assert "grant select, insert, update, delete on public.saves to authenticated;" in schema
     policies = re.findall(r"create policy .*?;", schema, re.S)
     assert len(policies) == 4  # read, add, change, delete
@@ -186,3 +187,13 @@ def test_r11_6_account_bar_starts_hidden() -> None:
     page = (WEB / "index.html").read_text()
     assert '<section id="account" class="account" hidden>' in page
     assert page.index('src="account.js"') < page.index('src="app.js"')
+
+
+def test_r11_16_boards_stay_on_the_device() -> None:
+    """Kept boards use the meowdoku prefix (R11.15), a 50-board limit, and never reach the account."""
+    script = (WEB / "boards.js").read_text()
+    assert 'const BOARDS_KEY = "meowdoku-boards";' in script
+    assert "const MAX_BOARDS = 50;" in script
+    assert "supabase" not in script.lower() and "account" not in script.lower().replace("player's account", "")
+    page = (WEB / "index.html").read_text()
+    assert page.index('src="boards.js"') < page.index('src="app.js"')

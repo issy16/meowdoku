@@ -249,3 +249,32 @@ def test_r11_8_a_bad_save_starts_fresh_with_a_message() -> None:
     view = act(bridge, "restore", {"version": 99})
     assert view["error"] == "保存したゲームを開けなかったので、新しいゲームを始めました。"
     assert view["cats"] == view["crosses"] == []
+
+
+def test_r11_16_every_view_carries_the_board_to_keep() -> None:
+    view = act(Bridge(), "double", 0, 4)
+    assert view["board"] == {"version": view["save"]["version"], "grid": view["save"]["grid"],
+                             "colors": view["save"]["colors"]}
+
+
+def test_r11_16_open_board_starts_the_kept_puzzle_fresh() -> None:
+    first = Bridge()
+    board = act(first, "double", 0, 4)["board"]
+    later = Bridge()
+    act(later, "press", 1, 1)
+    act(later, "release", 1, 1)
+    view = act(later, "open_board", board)
+    assert view["error"] is None
+    assert view["cats"] == view["crosses"] == []
+    assert view["regions"] == first.view()["regions"]
+    assert not view["can_undo"]
+
+
+def test_r11_16_a_bad_board_leaves_the_game_as_it_was() -> None:
+    bridge = Bridge()
+    act(bridge, "language", "zh-TW")
+    act(bridge, "press", 1, 1)
+    act(bridge, "release", 1, 1)
+    view = act(bridge, "open_board", {"version": 1, "grid": "AB\nBA"})
+    assert view["error"] == "無法開啟這個儲存的題目。"
+    assert view["crosses"] == [[1, 1]]

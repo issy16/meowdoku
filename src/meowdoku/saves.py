@@ -4,6 +4,9 @@ A save holds the format version, the puzzle as a text grid (R3), each
 region's color, and the cats and ✕ marks. Undo history, hints, and the
 solution are not saved. Opening a save checks everything, so a damaged or
 unknown save raises SaveError instead of starting a broken game.
+
+A kept board (R11.16) is a save without the marks: just the puzzle to play
+again. It's checked the same way when opened.
 """
 
 import re
@@ -23,9 +26,9 @@ _COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 class SaveError(MeowdokuError):
     """A save that can't be opened: damaged, edited, or from an unknown version."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, key: str = "err.save_unreadable") -> None:
         self.reason = reason  # for tests and debugging; players see the Message
-        super().__init__(Message("err.save_unreadable"))
+        super().__init__(Message(key))
 
 
 def to_save(session: GameSession) -> dict[str, Any]:
@@ -67,6 +70,22 @@ def from_save(data: object, language: str = DEFAULT_LANGUAGE) -> GameSession:
     session = GameSession(puzzle, dict(colors), language)
     session.state = state
     return session
+
+
+def to_board(session: GameSession) -> dict[str, Any]:
+    """The session's puzzle alone, to keep and play again (R11.16)."""
+    save = to_save(session)
+    return {"version": save["version"], "grid": save["grid"], "colors": save["colors"]}
+
+
+def from_board(data: object, language: str = DEFAULT_LANGUAGE) -> GameSession:
+    """A fresh game of a kept board; raises SaveError, worded for boards, if anything is wrong (R11.16)."""
+    if not isinstance(data, Mapping):
+        raise SaveError("not an object", "err.board_unreadable")
+    try:
+        return from_save({**data, "cats": [], "crosses": []}, language)
+    except SaveError as error:
+        raise SaveError(error.reason, "err.board_unreadable") from None
 
 
 def _cells_out(cells: Iterable[Cell]) -> list[list[int]]:
