@@ -317,6 +317,11 @@ their game on another device. The desktop app (R8, R10) stays.
   is reported and the player starts fresh, without crashing.
 - **R11.9** A player can read and change only their own save. The service
   enforces this, not the page, and the page holds no key that can bypass it.
+- **R11.9a** The service also limits how much anyone can store, so the
+  project stays on Supabase's free plan, which never bills: each account
+  has at most one save (R11.7), and the database refuses a save larger
+  than 8 KB (a full 12×12 save is about 3 KB). Supabase's own limits on
+  sign-ups and emails per address stay on. (Added at the owner's request.)
 - **R11.10** If saving fails, the page says so and keeps the game; it never
   says a game was saved when it wasn't.
 - **R11.11** A signed-in player can delete their account and saved game.
@@ -347,6 +352,17 @@ their game on another device. The desktop app (R8, R10) stays.
   returns to `https://issy16.github.io/meowdoku/`, and that address, plus a
   local one for testing, are the only ones allowed in the service's
   settings.
+- **R11.16** A player can keep puzzles to play again later, on their
+  device only, whether or not they are signed in. A Save board button keeps
+  the current puzzle (its text grid and region colors, as in R11.8), without
+  cats, ✕ marks, or undo history. Each kept board is named by the date and
+  time it was kept, worded in the player's language, and the player can
+  rename it. The list of kept boards opens a board as a fresh game,
+  replacing the current one as opening a screenshot does (R11.7a), and can
+  delete a board. Up to 50 boards are kept; at 50 the page says so and asks
+  the player to delete one first. Boards are stored as `meowdoku-boards`
+  (R11.15) and checked when opened, like a save (R11.8). They are not in
+  the player's account. (Added at the owner's request.)
 
 ## R12 Languages
 
@@ -446,7 +462,8 @@ app and the desktop window alike.
 - Timers, and saving progress in the Mac app (the web app saves, R11.8)
 - Phone or tablet apps from an app store, Windows apps, and signed or
   notarized Mac apps (phones use the web app, R11)
-- Several saved games per account, sharing puzzles, leaderboards, and
+- Several saved games per account, kept boards in the account (R11.16
+  keeps them on the device), sharing puzzles, leaderboards, and
   checking completions on a server (the web app trusts the browser)
 - Scores for signed-in players, such as puzzles solved without Hint, Step
   by Step, or Solve (kept as an option by the owner; details to come)
